@@ -1,4 +1,4 @@
-#!/usr/bin/env /Users/rdcrljbe/anaconda3/bin/python
+#!/usr/bin/env /opt/local/bin/python3.12
 
 import os
 import numpy as np
@@ -18,8 +18,8 @@ from sklearn.metrics import mean_squared_error
 from scipy.stats import gaussian_kde
 from matplotlib import gridspec
 
-num_years=6
-year_array=[2010, 2011, 2012, 2013, 2014, 2015]
+num_years=3
+year_array=[2010, 2011, 2012]
 
 Beg_YYYY = year_array[0]
 End_YYYY = year_array[num_years-1]
@@ -41,6 +41,7 @@ BGDATETXT='{:%Y/%m/%d}'.format(beg_DTG)
 date_diff=end_DTG-beg_DTG
 num_years = End_YYYY-Beg_YYYY+1
 the_hour_csv_range=(date_diff.days+1)*num_years
+print ('ERROR CHECKING:   The Hours CSV Range =', the_hour_csv_range, date_diff.days+1, num_years, End_YYYY-Beg_YYYY, date_diff.days)
 the_pts_array=np.zeros((((date_diff.days+1)*8)+1)*num_years, dtype=np.int32)
 
 INC_YEAR=Beg_YYYY
@@ -100,7 +101,7 @@ for year_loop in range (0, num_years, 1):
     while LVL<=3:
         CURR_SCANfile=DataPath+'ISMN_tsoil_Noah-L'+str(SCAN_LEVELS[LVL])+'_data_by_hour_'+STR_BDATE+'-'+STR_EDATE+'.csv'
         print (DataPath+'ISMN_tsoil_Noah-L'+str(SCAN_LEVELS[LVL])+'_data_by_hour_'+STR_BDATE+'-'+STR_EDATE+'.csv')
-        CURR_SCANDATA=pandas.read_csv(CURR_SCANfile)
+        CURR_SCANDATA=pandas.read_csv(CURR_SCANfile, index_col=0)
         num_scan_stations=CURR_SCANDATA.shape[1]
         num_scan_recs=CURR_SCANDATA.shape[0]
         if LVL==0:
@@ -108,7 +109,7 @@ for year_loop in range (0, num_years, 1):
         ii=0
         while ii<=num_scan_stations-2:
             
-            SCAN_DATA_ARRAY_TEMP[LVL,:,ii]=CURR_SCANDATA[CURR_SCANDATA.columns[ii+1]]
+            SCAN_DATA_ARRAY_TEMP[LVL,:,ii]=CURR_SCANDATA[CURR_SCANDATA.columns[ii]]
             ii+=1
         LVL+=1
         
@@ -125,13 +126,13 @@ for year_loop in range (0, num_years, 1):
     #####  Read in the Skin Temperature data from the ISCCP files
     
     CURR_ISCCP_TSKIN_file=ISCCPDataPath+'ISCCP_TSKIN_'+STR_BDATE+'-'+STR_EDATE+'.csv'
-    CURR_ISCCP_TSKIN_data=pandas.read_csv(CURR_ISCCP_TSKIN_file)
+    CURR_ISCCP_TSKIN_data=pandas.read_csv(CURR_ISCCP_TSKIN_file, index_col=0)
     num_lis_stations=CURR_ISCCP_TSKIN_data.shape[1]
     num_lis_recs=CURR_ISCCP_TSKIN_data.shape[0]
     ISCCP_TSKIN_ARRAY_TEMP=np.zeros((num_lis_recs, num_lis_stations), dtype=np.float64)
     ii=0
     while ii<=num_lis_stations-2:
-        ISCCP_TSKIN_ARRAY_TEMP[:,ii]=CURR_ISCCP_TSKIN_data[CURR_ISCCP_TSKIN_data.columns[ii+1]]
+        ISCCP_TSKIN_ARRAY_TEMP[:,ii]=CURR_ISCCP_TSKIN_data[CURR_ISCCP_TSKIN_data.columns[ii]]
         ii+=1
     
     
@@ -666,13 +667,19 @@ while curr_dtg <= end_DTG:
     the_pts_array[points]=points
 
     if The_HH == 0 :
-        print ('error checking in HH=0', the_zero_hour_csv_index, points, SCAN_zero_array_soiltemp.shape, SCAN_DATA_ARRAY.shape)
+        print ('error checking in HH=0', the_hour_csv_range, the_zero_hour_csv_index, points, SCAN_zero_array_soiltemp.shape, SCAN_DATA_ARRAY.shape)
         SCAN_zero_array_soiltemp[:,the_zero_hour_csv_index,:]=SCAN_DATA_ARRAY[:,points,:]
         ISSCP_zero_array_soiltemp[the_zero_hour_csv_index,:]=ISCCP_TSKIN_ARRAY[points,:]
         
-        the_zero_hour_csv_index+=1
+        
         dtg_array_zero=dtg_array_zero+["%s/%s/%s" % (The_YYYY_str,The_MM_str,The_DD_str)]
-
+        
+        if (the_zero_hour_csv_index == 0):
+            dates_array_00=datetime.date(The_YYYY, The_MM, The_DD)
+        else:
+            dates_array_00=np.append(dates_array_00, datetime.date(The_YYYY, The_MM, The_DD))
+        
+        the_zero_hour_csv_index+=1
     elif The_HH == 3:
         
         SCAN_three_array_soiltemp[:,the_three_hour_csv_index,:]=SCAN_DATA_ARRAY[:,points,:]
@@ -1428,8 +1435,8 @@ while station_number < num_scan_stations-1:
     axes[1].legend(loc='upper right', borderaxespad=0.)
     axes[1].set_xlabel('date')
     axes[1].set_ylabel('Temp (K)')
-    img_fname_pre=img_out_path+str(stationsfile['Stat_Name'][station_number])
-    plt.suptitle(str(stationsfile['Stat_Name'][station_number])+' LIS Noah Open Loop vs. USDA SCAN Data\n'+BGDATETXT+' - '+EDATETXT, fontsize=18)
+    img_fname_pre=img_out_path+CURR_SCANDATA.columns[station_number]
+    plt.suptitle(CURR_SCANDATA.columns[station_number]+' LIS Noah Open Loop vs. USDA SCAN Data\n'+BGDATETXT+' - '+EDATETXT, fontsize=18)
     plt.savefig(img_fname_pre+'_ISCCP_vs_ISMN_Data_year_'+BGDATE+'-'+EDATE+'_'+Plot_Labels+'.png')
     plt.close(figure)
     station_number+=1
@@ -1523,6 +1530,9 @@ while station_number < num_scan_stations-1:
     axes[0].set_ylabel('Temp (K)')
     bbox_props = dict(boxstyle="round", fc="w", ec="none", alpha=0.9)
     axes[0].text(10, 330, "00 UTC", ha="left", va="center", size=12, bbox=bbox_props)
+    increments = np.arange(0,the_hour_csv_range/num_years+1)
+    axes[0].set_xticks(increments[::90])
+    axes[0].set_xticklabels([datetime.datetime.strftime(ii,"%m-%y") for ii in dates_array_00[::90]], rotation=45, fontsize=7.0)
     axes[0].legend(loc='upper right', edgecolor="none", borderaxespad=0.)
 
 ##################################################################################################################
@@ -1576,6 +1586,9 @@ while station_number < num_scan_stations-1:
     axes[1].set_ylabel('Temp (K)')
     bbox_props = dict(boxstyle="round", fc="w", ec="none", alpha=0.9)
     axes[1].text(10, 330, "06 UTC", ha="left", va="center", size=12, bbox=bbox_props)
+    increments = np.arange(0,the_hour_csv_range/num_years+1)
+    axes[1].set_xticks(increments[::90])
+    axes[1].set_xticklabels([datetime.datetime.strftime(ii,"%m-%y") for ii in dates_array_00[::90]], rotation=45, fontsize=7.0)
     axes[1].legend(loc='upper right', edgecolor="none", borderaxespad=0.)
 
 ##################################################################################################################
@@ -1630,6 +1643,9 @@ while station_number < num_scan_stations-1:
     axes[2].set_ylabel('Temp (K)')
     bbox_props = dict(boxstyle="round", fc="w", ec="none", alpha=0.9)
     axes[2].text(10, 330, "12 UTC", ha="left", va="center", size=12, bbox=bbox_props)
+    increments = np.arange(0,the_hour_csv_range/num_years+1)
+    axes[2].set_xticks(increments[::90])
+    axes[2].set_xticklabels([datetime.datetime.strftime(ii,"%m-%y") for ii in dates_array_00[::90]], rotation=45, fontsize=7.0)
     axes[2].legend(loc='upper right', edgecolor="none", borderaxespad=0.)
 
 ##################################################################################################################
@@ -1681,18 +1697,19 @@ while station_number < num_scan_stations-1:
     axes[3].scatter(index_array_cycles, SCAN_eighteen_array_soiltemp[0,:,station_number], marker='*', color='b', alpha=.5, label='ISMN 5-cm')
     axes[3].scatter(index_array_cycles, ISSCP_eighteen_array_soiltemp[:,station_number], marker='.', color='r', alpha=.5, label='ISCCP')
     axes[3].grid()
-    axes[3].set_xlabel('Day of Year')
+    axes[3].set_xlabel('Date (MM-YY)')
     axes[3].set_ylabel('Temp (K)')
     bbox_props = dict(boxstyle="round", fc="w", ec="none", alpha=0.9)
     axes[3].text(10, 330, "18 UTC", ha="left", va="center", size=12, bbox=bbox_props)
-
-
+    increments = np.arange(0,the_hour_csv_range/num_years+1)
+    axes[3].set_xticks(increments[::90])
+    axes[3].set_xticklabels([datetime.datetime.strftime(ii,"%m-%y") for ii in dates_array_00[::90]], rotation=45, fontsize=7.0)
     
     axes[3].legend(loc='upper right', edgecolor="none", borderaxespad=0.)
 
-    plt.suptitle(str(stationsfile['Stat_Name'][station_number])+' ISCCP LST vs. ISMN Soil Temperature Data \n Valid '+BGDATETXT+' - '+EDATETXT, fontsize=18)
+    plt.suptitle(CURR_SCANDATA.columns[station_number]+' ISCCP LST vs. ISMN Soil Temperature Data \n Valid '+BGDATETXT+' - '+EDATETXT, fontsize=18)
     #img_fname_pre=img_out_path+stationsfile['State Code'][station_number]+'-'+str(stationsfile['Stat_Name'][station_number])
-    img_fname_pre=img_out_path+str(stationsfile['Stat_Name'][station_number])
+    img_fname_pre=img_out_path+CURR_SCANDATA.columns[station_number]
     img_fname_end='-ISCCP_vs_ISMN_Data_4-Plot-year_'+BGDATE+'-'+EDATE+'_'+Plot_Labels+'.png'
     plt.savefig(img_fname_pre+img_fname_end)
     plt.close(figure)
@@ -1727,7 +1744,7 @@ while station_number < num_scan_stations-1:
         #compute the bias
         filtered_diff=filtered_y_final-filtered_x_final
         temp_bias=np.sum(filtered_diff)/filtered_diff.shape[0]
-        print ('this r value for the 00 UTC ISSCP vs. ISMN LY1 '+str(stationsfile['Stat_Name'][station_number])+' is...', r_value)
+        print ('this r value for the 00 UTC ISSCP vs. ISMN LY1 '+CURR_SCANDATA.columns[station_number]+' is...', r_value)
     
         rmse = np.sqrt(np.nanmean((filtered_y_final-filtered_x_final)**2.))  #= math.sqrt(mse)
         ubrmse=np.sqrt(rmse**2-temp_bias**2)
@@ -1746,8 +1763,9 @@ while station_number < num_scan_stations-1:
         axes[0,0].text(Scat_min-14, Scat_max-5,  "RMS :"+str(round(rmse,2)), ha="right", va="center", size=10)
         axes[0,0].text(Scat_min-14, Scat_max-15, "BIAS:"+str(round(temp_bias,2)), ha="right", va="center", size=10)
         axes[0,0].text(Scat_min-14, Scat_max-22, "(ISSCP-ISMN)", ha="right", va="center",size=8)
-        axes[0,0].text(Scat_min-14, Scat_max-35, "R2:"+str(round(r_value,2)), ha="right", va="center", size=10)
+        axes[0,0].text(Scat_min-14, Scat_max-35, "R:"+str(round(r_value,2)), ha="right", va="center", size=10)
         axes[0,0].text(Scat_min-14, Scat_max-45, "ubRMSD:"+str(round(ubrmse,2)), ha="right", va="center", size=10)
+        axes[0,0].text(Scat_max-14, Scat_max-55, "p-value:"+str(round(p_value,2)), ha="left", va="center", size=10)
         bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
         pts=str(filtered_diff.shape[0])
         axes[0,0].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
@@ -1772,7 +1790,7 @@ while station_number < num_scan_stations-1:
         #compute the bias
         filtered_diff=filtered_y_final-filtered_x_final
         temp_bias=np.sum(filtered_diff)/filtered_diff.shape[0]
-        print ('this r value for the 03 UTC ISSCP vs. ISMN LY1 '+str(stationsfile['Stat_Name'][station_number])+' is...', r_value)
+        print ('this r value for the 03 UTC ISSCP vs. ISMN LY1 '+CURR_SCANDATA.columns[station_number]+' is...', r_value)
     
         rmse = np.sqrt(np.nanmean((filtered_y_final-filtered_x_final)**2.))  #= math.sqrt(mse)
         ubrmse=np.sqrt(rmse**2-temp_bias**2)
@@ -1791,8 +1809,9 @@ while station_number < num_scan_stations-1:
         axes[1,0].text(Scat_min-14, Scat_max-5,  "RMS :"+str(round(rmse,2)), ha="right", va="center", size=10)
         axes[1,0].text(Scat_min-14, Scat_max-15, "BIAS:"+str(round(temp_bias,2)), ha="right", va="center", size=10)
         axes[1,0].text(Scat_min-14, Scat_max-22, "(ISSCP-ISMN)", ha="right", va="center",size=8)
-        axes[1,0].text(Scat_min-14, Scat_max-35, "R2:"+str(round(r_value,2)), ha="right", va="center", size=10)
+        axes[1,0].text(Scat_min-14, Scat_max-35, "R:"+str(round(r_value,2)), ha="right", va="center", size=10)
         axes[1,0].text(Scat_min-14, Scat_max-45, "ubRMSD:"+str(round(ubrmse,2)), ha="right", va="center", size=10)
+        axes[1,0].text(Scat_max-14, Scat_max-55, "p-value:"+str(round(p_value,2)), ha="left", va="center", size=10)
         bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
         pts=str(filtered_diff.shape[0])
         axes[1,0].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
@@ -1817,7 +1836,7 @@ while station_number < num_scan_stations-1:
         #compute the bias
         filtered_diff=filtered_y_final-filtered_x_final
         temp_bias=np.sum(filtered_diff)/filtered_diff.shape[0]
-        print ('this r value for the 06 UTC ISSCP vs. ISMN LY1 '+str(stationsfile['Stat_Name'][station_number])+' is...', r_value)
+        print ('this r value for the 06 UTC ISSCP vs. ISMN LY1 '+CURR_SCANDATA.columns[station_number]+' is...', r_value)
         rmse = np.sqrt(np.nanmean((filtered_y_final-filtered_x_final)**2.))  #= math.sqrt(mse)
         ubrmse=np.sqrt(rmse**2-temp_bias**2)
         
@@ -1835,8 +1854,9 @@ while station_number < num_scan_stations-1:
         axes[2,0].text(Scat_min-14, Scat_max-5,  "RMS :"+str(round(rmse,2)), ha="right", va="center", size=10)
         axes[2,0].text(Scat_min-14, Scat_max-15, "BIAS:"+str(round(temp_bias,2)), ha="right", va="center", size=10)
         axes[2,0].text(Scat_min-14, Scat_max-22, "(ISSCP-ISMN)", ha="right", va="center", size=8)
-        axes[2,0].text(Scat_min-14, Scat_max-35, "R2:"+str(round(r_value,2)), ha="right", va="center", size=10)
+        axes[2,0].text(Scat_min-14, Scat_max-35, "R:"+str(round(r_value,2)), ha="right", va="center", size=10)
         axes[2,0].text(Scat_min-14, Scat_max-45, "ubRMSD:"+str(round(ubrmse,2)), ha="right", va="center", size=10)
+        axes[2,0].text(Scat_max-14, Scat_max-55, "p-value:"+str(round(p_value,2)), ha="left", va="center", size=10)
         bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
         pts=str(filtered_diff.shape[0])
         axes[2,0].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
@@ -1861,7 +1881,7 @@ while station_number < num_scan_stations-1:
         #compute the bias
         filtered_diff=filtered_y_final-filtered_x_final
         temp_bias=np.sum(filtered_diff)/filtered_diff.shape[0]
-        print ('this r value for the 09 UTC ISSCP vs. ISMN LY1 '+str(stationsfile['Stat_Name'][station_number])+' is...', r_value)
+        print ('this r value for the 09 UTC ISSCP vs. ISMN LY1 '+CURR_SCANDATA.columns[station_number]+' is...', r_value)
     
         rmse = np.sqrt(np.nanmean((filtered_y_final-filtered_x_final)**2.))  #= math.sqrt(mse)
         ubrmse=np.sqrt(rmse**2-temp_bias**2)
@@ -1874,15 +1894,16 @@ while station_number < num_scan_stations-1:
         axes[3,0].plot(filtered_x_final, filtered_x_final*slope+intercept, color='red', linewidth=2)
         axes[3,0].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
         axes[3,0].grid()
-        axes[3,0].set_ylabel('ISCCP Skin T (K)')
-        axes[3,0].set_xlabel('ISMN 5cm Tsoil (K)')
+        axes[3,0].set_ylabel('ISCCP Skin T (K)', size=12)
+        axes[3,0].set_xlabel('ISMN 5cm Tsoil (K)', size=10)
         bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
         axes[3,0].text(Scat_min+2,  Scat_max-10, "09 UTC", ha="left", va="center", size=12, bbox=bbox_props)
         axes[3,0].text(Scat_min-14, Scat_max-5,  "RMS :"+str(round(rmse,2)), ha="right", va="center", size=10)
         axes[3,0].text(Scat_min-14, Scat_max-15, "BIAS:"+str(round(temp_bias,2)), ha="right", va="center", size=10)
         axes[3,0].text(Scat_min-14, Scat_max-22, "(ISSCP-ISMN)", ha="right", va="center", size=8)
-        axes[3,0].text(Scat_min-14, Scat_max-35, "R2:"+str(round(r_value,2)), ha="right", va="center", size=10)
+        axes[3,0].text(Scat_min-14, Scat_max-35, "R:"+str(round(r_value,2)), ha="right", va="center", size=10)
         axes[3,0].text(Scat_min-14, Scat_max-45, "ubRMSD:"+str(round(ubrmse,2)), ha="right", va="center", size=10)
+        axes[3,0].text(Scat_max-14, Scat_max-55, "p-value:"+str(round(p_value,2)), ha="left", va="center", size=10)
         bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
         pts=str(filtered_diff.shape[0])
         axes[3,0].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
@@ -1907,7 +1928,7 @@ while station_number < num_scan_stations-1:
         #compute the bias
         filtered_diff=filtered_y_final-filtered_x_final
         temp_bias=np.sum(filtered_diff)/filtered_diff.shape[0]
-        print ('this r value for the 12 UTC ISSCP vs. ISMN LY1 '+str(stationsfile['Stat_Name'][station_number])+' is...', r_value)
+        print ('this r value for the 12 UTC ISSCP vs. ISMN LY1 '+CURR_SCANDATA.columns[station_number]+' is...', r_value)
 
         rmse = np.sqrt(np.nanmean((filtered_y_final-filtered_x_final)**2.))  #= math.sqrt(mse)
         ubrmse=np.sqrt(rmse**2-temp_bias**2)
@@ -1920,14 +1941,15 @@ while station_number < num_scan_stations-1:
         axes[0,1].plot(filtered_x_final, filtered_x_final*slope+intercept, color='red', linewidth=2)
         axes[0,1].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
         axes[0,1].grid()
-        axes[0,1].set_ylabel('ISCCP Skin T (K)')
+        axes[0,1].set_ylabel('ISCCP Skin T (K)', size=10)
         bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
         axes[0,1].text(Scat_min+2, Scat_max-10, "12 UTC", ha="left", va="center", size=12, bbox=bbox_props)
         axes[0,1].text(Scat_max+5, Scat_max-5, "RMS :"+str(round(rmse,2)), ha="left", va="center", size=10)
         axes[0,1].text(Scat_max+5, Scat_max-15, "BIAS:"+str(round(temp_bias,2)), ha="left", va="center", size=10)
         axes[0,1].text(Scat_max+5, Scat_max-22, "(ISSCP-ISMN)", ha="left", va="center", size=8)
-        axes[0,1].text(Scat_max+5, Scat_max-35, "R2:"+str(round(r_value,2)), ha="left", va="center", size=10)
+        axes[0,1].text(Scat_max+5, Scat_max-35, "R:"+str(round(r_value,2)), ha="left", va="center", size=10)
         axes[0,1].text(Scat_max+5, Scat_max-45, "ubRMSD:"+str(round(ubrmse,2)), ha="left", va="center", size=10)
+        axes[0,1].text(Scat_max+5, Scat_max-55, "p-value:"+str(round(p_value,2)), ha="left", va="center", size=10)
         bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
         pts=str(filtered_diff.shape[0])
         axes[0,1].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
@@ -1952,7 +1974,7 @@ while station_number < num_scan_stations-1:
         #compute the bias
         filtered_diff=filtered_y_final-filtered_x_final
         temp_bias=np.sum(filtered_diff)/filtered_diff.shape[0]
-        print ('this r value for the 15 UTC ISSCP vs. ISMN LY1 '+str(stationsfile['Stat_Name'][station_number])+' is...', r_value)
+        print ('this r value for the 15 UTC ISSCP vs. ISMN LY1 '+CURR_SCANDATA.columns[station_number]+' is...', r_value)
         rmse = np.sqrt(np.nanmean((filtered_y_final-filtered_x_final)**2.))  #= math.sqrt(mse)
         ubrmse=np.sqrt(rmse**2-temp_bias**2)
         
@@ -1964,14 +1986,15 @@ while station_number < num_scan_stations-1:
         axes[1,1].plot(filtered_x_final, filtered_x_final*slope+intercept, color='red', linewidth=2)
         axes[1,1].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
         axes[1,1].grid()
-        axes[1,1].set_ylabel('ISCCP Skin T (K)')
+        axes[1,1].set_ylabel('ISCCP Skin T (K)', size=10)
         bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
         axes[1,1].text(Scat_min+2, Scat_max-10, "15 UTC", ha="left", va="center", size=12, bbox=bbox_props)
         axes[1,1].text(Scat_max+5, Scat_max-5, "RMS :"+str(round(rmse,2)), ha="left", va="center", size=10)
         axes[1,1].text(Scat_max+5, Scat_max-15, "BIAS:"+str(round(temp_bias,2)), ha="left", va="center", size=10)
         axes[1,1].text(Scat_max+5, Scat_max-22, "(ISSCP-ISMN)", ha="left", va="center", size=8)
-        axes[1,1].text(Scat_max+5, Scat_max-35, "R2:"+str(round(r_value,2)), ha="left", va="center", size=10)
+        axes[1,1].text(Scat_max+5, Scat_max-35, "R:"+str(round(r_value,2)), ha="left", va="center", size=10)
         axes[1,1].text(Scat_max+5, Scat_max-45, "ubRMSD:"+str(round(ubrmse,2)), ha="left", va="center", size=10)
+        axes[1,1].text(Scat_max+5, Scat_max-55, "p-value:"+str(round(p_value,2)), ha="left", va="center", size=10)
         bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
         pts=str(filtered_diff.shape[0])
         axes[1,1].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
@@ -1996,7 +2019,7 @@ while station_number < num_scan_stations-1:
         #compute the bias
         filtered_diff=filtered_y_final-filtered_x_final
         temp_bias=np.sum(filtered_diff)/filtered_diff.shape[0]
-        print ('this r value for the 18 UTC ISSCP vs. ISMN LY1 '+str(stationsfile['Stat_Name'][station_number])+' is...', r_value)
+        print ('this r value for the 18 UTC ISSCP vs. ISMN LY1 '+CURR_SCANDATA.columns[station_number]+' is...', r_value)
         rmse = np.sqrt(np.nanmean((filtered_y_final-filtered_x_final)**2.))  #= math.sqrt(mse)
         ubrmse=np.sqrt(rmse**2-temp_bias**2)
         
@@ -2008,14 +2031,15 @@ while station_number < num_scan_stations-1:
         axes[2,1].plot(filtered_x_final, filtered_x_final*slope+intercept, color='red', linewidth=2)
         axes[2,1].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
         axes[2,1].grid()
-        axes[2,1].set_ylabel('ISCCP Skin T (K)')
+        axes[2,1].set_ylabel('ISCCP Skin T (K)', size=10)
         bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
         axes[2,1].text(Scat_min+2, Scat_max-10, "18 UTC", ha="left", va="center", size=12, bbox=bbox_props)
         axes[2,1].text(Scat_max+5, Scat_max-5,"RMS :"+str(round(rmse,2)), ha="left", va="center", size=10)
         axes[2,1].text(Scat_max+5, Scat_max-15, "BIAS:"+str(round(temp_bias,2)), ha="left", va="center", size=10)
         axes[2,1].text(Scat_max+5, Scat_max-22, "(ISSCP-ISMN)", ha="left", va="center", size=8)
-        axes[2,1].text(Scat_max+5, Scat_max-35, "R2:"+str(round(r_value,2)), ha="left", va="center", size=10)
+        axes[2,1].text(Scat_max+5, Scat_max-35, "R:"+str(round(r_value,2)), ha="left", va="center", size=10)
         axes[2,1].text(Scat_max+5, Scat_max-45, "ubRMSD:"+str(round(ubrmse,2)), ha="left", va="center", size=10)
+        axes[2,1].text(Scat_max+5, Scat_max-55, "p-value:"+str(round(p_value,2)), ha="left", va="center", size=10)
         bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
         pts=str(filtered_diff.shape[0])
         axes[2,1].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
@@ -2040,7 +2064,7 @@ while station_number < num_scan_stations-1:
         #compute the bias
         filtered_diff=filtered_y_final-filtered_x_final
         temp_bias=np.sum(filtered_diff)/filtered_diff.shape[0]
-        print ('this r value for the 21 UTC ISSCP vs. ISMN LY1 '+str(stationsfile['Stat_Name'][station_number])+' is...', r_value)
+        print ('this r value for the 21 UTC ISSCP vs. ISMN LY1 '+CURR_SCANDATA.columns[station_number]+' is...', r_value)
 
         rmse = np.sqrt(np.nanmean((filtered_y_final-filtered_x_final)**2.))  #= math.sqrt(mse)
         ubrmse=np.sqrt(rmse**2-temp_bias**2)
@@ -2053,15 +2077,16 @@ while station_number < num_scan_stations-1:
         axes[3,1].plot(filtered_x_final, filtered_x_final*slope+intercept, color='red', linewidth=2)
         axes[3,1].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
         axes[3,1].grid()
-        axes[3,1].set_ylabel('ISCCP Skin T (K)')
-        axes[3,1].set_xlabel('ISMN 5cm Tsoil (K)')
+        axes[3,1].set_ylabel('ISCCP Skin T (K)', size=10)
+        axes[3,1].set_xlabel('ISMN 5cm Tsoil (K)', size=12)
         bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
         axes[3,1].text(Scat_min+2, Scat_max-10, "21 UTC", ha="left", va="center", size=12, bbox=bbox_props)
         axes[3,1].text(Scat_max+5, Scat_max-5, "RMS :"+str(round(r_value,2)), ha="left", va="center", size=10)
         axes[3,1].text(Scat_max+5, Scat_max-15, "BIAS:"+str(round(temp_bias,2)), ha="left", va="center", size=10)
         axes[3,1].text(Scat_max+5, Scat_max-22, "(ISSCP-ISMN)", ha="left", va="center", size=8)
-        axes[3,1].text(Scat_max+5, Scat_max-35, "R2:"+str(round(r_value,2)), ha="left", va="center", size=10)
+        axes[3,1].text(Scat_max+5, Scat_max-35, "R:"+str(round(r_value,2)), ha="left", va="center", size=10)
         axes[3,1].text(Scat_max+5, Scat_max-45, "ubRMSD:"+str(round(ubrmse,2)), ha="left", va="center", size=10)
+        axes[3,1].text(Scat_max+5, Scat_max-55, "p-value:"+str(round(p_value,2)), ha="left", va="center", size=10)
         bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
         pts=str(filtered_diff.shape[0])
         axes[3,1].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
@@ -2070,9 +2095,9 @@ while station_number < num_scan_stations-1:
         stations_bias_array_L1[7, station_number]=temp_bias
         stations_corr_array_L1[7, station_number]=r_value
 
-    plt.suptitle('ISCCP Skin Temperature vs. ISMN 5cm Soil Temp \n  Station ID -'+str(stationsfile['Stat_Name'][station_number]), fontsize=18)
+    plt.suptitle('ISCCP Skin Temperature vs. ISMN 5cm Soil Temp \n  Station ID -'+CURR_SCANDATA.columns[station_number], fontsize=18)
     
-    img_fname_pre=img_out_path+str(stationsfile['Stat_Name'][station_number])
+    img_fname_pre=img_out_path+CURR_SCANDATA.columns[station_number]
     plt.savefig(img_fname_pre+'_ISCCPvsISMN5cm_'+BGDATE+'-'+EDATE+'_'+Plot_Labels+'.png')
     plt.close(figure)
     
@@ -2098,7 +2123,7 @@ while station_number < num_scan_stations-1:
         #compute the bias
         filtered_diff=filtered_y_final-filtered_x_final
         temp_bias=np.sum(filtered_diff)/filtered_diff.shape[0]
-        print ('this r value for the 00 UTC ISSCP vs. ISMN LY2 '+str(stationsfile['Stat_Name'][station_number])+' is...', r_value)
+        print ('this r value for the 00 UTC ISSCP vs. ISMN LY2 '+CURR_SCANDATA.columns[station_number]+' is...', r_value)
     
         rmse = np.sqrt(np.nanmean((filtered_y_final-filtered_x_final)**2.))  #= math.sqrt(mse)
         ubrmse=np.sqrt(rmse**2-temp_bias**2)
@@ -2116,8 +2141,9 @@ while station_number < num_scan_stations-1:
         axes[0,0].text(Scat_min-8, Scat_max-5,  "RMS :"+str(round(rmse,2)), ha="right", va="center", size=10)
         axes[0,0].text(Scat_min-8, Scat_max-15, "BIAS:"+str(round(temp_bias,2)), ha="right", va="center", size=10)
         axes[0,0].text(Scat_min-8, Scat_max-22, "(ISSCP-ISMN)", ha="right", va="center", size=6)
-        axes[0,0].text(Scat_min-8, Scat_max-35, "R2:"+str(round(r_value,2)), ha="right", va="center", size=10)
+        axes[0,0].text(Scat_min-8, Scat_max-35, "R:"+str(round(r_value,2)), ha="right", va="center", size=10)
         axes[0,0].text(Scat_max-8, Scat_max-45, "ubRMSD:"+str(round(ubrmse,2)), ha="right", va="center", size=10)
+        axes[0,0].text(Scat_max-8, Scat_max-55, "p-value:"+str(round(p_value,2)), ha="left", va="center", size=10)
        
     ##################################################################################################################
     #####  PLOT THE Whole Dataset as a line plot for 03Z Top Layer COMPARISON
@@ -2135,7 +2161,7 @@ while station_number < num_scan_stations-1:
         #compute the bias
         filtered_diff=filtered_y_final-filtered_x_final
         temp_bias=np.sum(filtered_diff)/filtered_diff.shape[0]
-        print ('this r value for the 03 UTC ISSCP vs. ISMN LY2 '+str(stationsfile['Stat_Name'][station_number])+' is...', r_value)
+        print ('this r value for the 03 UTC ISSCP vs. ISMN LY2 '+CURR_SCANDATA.columns[station_number]+' is...', r_value)
         rmse = np.sqrt(np.nanmean((filtered_y_final-filtered_x_final)**2.))  #= math.sqrt(mse)
         ubrmse=np.sqrt(rmse**2-temp_bias**2)
         
@@ -2152,8 +2178,9 @@ while station_number < num_scan_stations-1:
         axes[1,0].text(Scat_min-8, Scat_max-5,  "RMS :"+str(round(rmse,2)), ha="right", va="center", size=10)
         axes[1,0].text(Scat_min-8, Scat_max-15, "BIAS:"+str(round(temp_bias,2)), ha="right", va="center", size=10)
         axes[1,0].text(Scat_min-8, Scat_max-22, "(ISSCP-ISMN)", ha="right", va="center",size=6)
-        axes[1,0].text(Scat_min-8, Scat_max-35, "R2:"+str(round(r_value,2)), ha="right", va="center", size=10)
+        axes[1,0].text(Scat_min-8, Scat_max-35, "R:"+str(round(r_value,2)), ha="right", va="center", size=10)
         axes[1,0].text(Scat_max-8, Scat_max-45, "ubRMSD:"+str(round(ubrmse,2)), ha="right", va="center", size=10)
+        axes[1,0].text(Scat_max-8, Scat_max-55, "p-value:"+str(round(p_value,2)), ha="left", va="center", size=10)
         
     ##################################################################################################################
     #####  PLOT THE Whole Dataset as a line plot for 06Z Top Layer COMPARISON
@@ -2171,7 +2198,7 @@ while station_number < num_scan_stations-1:
         #compute the bias
         filtered_diff=filtered_y_final-filtered_x_final
         temp_bias=np.sum(filtered_diff)/filtered_diff.shape[0]
-        print ('this r value for the 06 UTC ISSCP vs. ISMN LY2 '+str(stationsfile['Stat_Name'][station_number])+' is...', r_value)
+        print ('this r value for the 06 UTC ISSCP vs. ISMN LY2 '+CURR_SCANDATA.columns[station_number]+' is...', r_value)
 
         rmse = np.sqrt(np.nanmean((filtered_y_final-filtered_x_final)**2.))  #= math.sqrt(mse)
         ubrmse=np.sqrt(rmse**2-temp_bias**2)
@@ -2189,8 +2216,9 @@ while station_number < num_scan_stations-1:
         axes[2,0].text(Scat_min-10, Scat_max-5,  "RMS :"+str(round(rmse,2)), ha="right", va="center", size=10)
         axes[2,0].text(Scat_min-8, Scat_max-15, "BIAS:"+str(round(temp_bias,2)), ha="right", va="center", size=10)
         axes[2,0].text(Scat_min-8, Scat_max-22, "(ISSCP-ISMN)",ha="right", va="center", size=6)
-        axes[2,0].text(Scat_min-8, Scat_max-35, "R2:"+str(round(r_value,2)), ha="right", va="center", size=10)
+        axes[2,0].text(Scat_min-8, Scat_max-35, "R:"+str(round(r_value,2)), ha="right", va="center", size=10)
         axes[2,0].text(Scat_max-8, Scat_max-45, "ubRMSD:"+str(round(ubrmse,2)), ha="right", va="center", size=10)
+        axes[2,0].text(Scat_max-8, Scat_max-55, "p-value:"+str(round(p_value,2)), ha="left", va="center", size=10)
 
     ##################################################################################################################
     #####  PLOT THE Whole Dataset as a line plot for 09Z Top Layer COMPARISON
@@ -2208,7 +2236,7 @@ while station_number < num_scan_stations-1:
         #compute the bias
         filtered_diff=filtered_y_final-filtered_x_final
         temp_bias=np.sum(filtered_diff)/filtered_diff.shape[0]
-        print ('this r value for the 09 UTC ISSCP vs. ISMN LY2 '+str(stationsfile['Stat_Name'][station_number])+' is...', r_value)
+        print ('this r value for the 09 UTC ISSCP vs. ISMN LY2 '+CURR_SCANDATA.columns[station_number]+' is...', r_value)
         rmse = np.sqrt(np.nanmean((filtered_y_final-filtered_x_final)**2.))  #= math.sqrt(mse)
         ubrmse=np.sqrt(rmse**2-temp_bias**2)
         
@@ -2226,8 +2254,9 @@ while station_number < num_scan_stations-1:
         axes[3,0].text(Scat_min-8, Scat_max-5,  "RMS :"+str(round(rmse,2)), ha="right", va="center", size=10)
         axes[3,0].text(Scat_min-8, Scat_max-15, "BIAS:"+str(round(temp_bias,2)), ha="right", va="center", size=10)
         axes[3,0].text(Scat_min-8, Scat_max-22, "(ISSCP-ISMN)", ha="right", va="center", size=6)
-        axes[3,0].text(Scat_min-8, Scat_max-35, "R2:"+str(round(r_value,2)), ha="right", va="center", size=10)
+        axes[3,0].text(Scat_min-8, Scat_max-35, "R:"+str(round(r_value,2)), ha="right", va="center", size=10)
         axes[3,0].text(Scat_max-8, Scat_max-45, "ubRMSD:"+str(round(ubrmse,2)), ha="right", va="center", size=10)
+        axes[3,0].text(Scat_max-8, Scat_max-55, "p-value:"+str(round(p_value,2)), ha="left", va="center", size=10)
        
         
     ##################################################################################################################
@@ -2246,7 +2275,7 @@ while station_number < num_scan_stations-1:
         #compute the bias
         filtered_diff=filtered_y_final-filtered_x_final
         temp_bias=np.sum(filtered_diff)/filtered_diff.shape[0]
-        print ('this r value for the 12 UTC ISSCP vs. ISMN LY2 '+str(stationsfile['Stat_Name'][station_number])+' is...', r_value)
+        print ('this r value for the 12 UTC ISSCP vs. ISMN LY2 '+CURR_SCANDATA.columns[station_number]+' is...', r_value)
         
         rmse = np.sqrt(np.nanmean((filtered_y_final-filtered_x_final)**2.))  #= math.sqrt(mse)
         ubrmse=np.sqrt(rmse**2-temp_bias**2)
@@ -2264,8 +2293,9 @@ while station_number < num_scan_stations-1:
         axes[0,1].text(Scat_max+3, Scat_max-5, "RMS :"+str(round(rmse,2)), ha="left", va="center", size=10)
         axes[0,1].text(Scat_max+3, Scat_max-15, "BIAS:"+str(round(temp_bias,2)), ha="left", va="center", size=10)
         axes[0,1].text(Scat_max+3, Scat_max-22, "(ISSCP-ISMN)", ha="left", va="center", size=6)
-        axes[0,1].text(Scat_max+3, Scat_max-35, "R2:"+str(round(r_value,2)), ha="left", va="center", size=10)
+        axes[0,1].text(Scat_max+3, Scat_max-35, "R:"+str(round(r_value,2)), ha="left", va="center", size=10)
         axes[0,1].text(Scat_max+3, Scat_max-45, "ubRMSD:"+str(round(ubrmse,2)), ha="left", va="center", size=10)
+        axes[0,1].text(Scat_max+3, Scat_max-55, "p-value:"+str(round(p_value,2)), ha="left", va="center", size=10)
  
     ##################################################################################################################
     #####  PLOT THE Whole Dataset as a line plot for 15Z Top Layer COMPARISON
@@ -2283,7 +2313,7 @@ while station_number < num_scan_stations-1:
         #compute the bias
         filtered_diff=filtered_y_final-filtered_x_final
         temp_bias=np.sum(filtered_diff)/filtered_diff.shape[0]
-        print ('this r value for the 15 UTC ISSCP vs. ISMN LY2 '+str(stationsfile['Stat_Name'][station_number])+' is...', r_value)
+        print ('this r value for the 15 UTC ISSCP vs. ISMN LY2 '+CURR_SCANDATA.columns[station_number]+' is...', r_value)
 
         rmse = np.sqrt(np.nanmean((filtered_y_final-filtered_x_final)**2.))  #= math.sqrt(mse)
         ubrmse=np.sqrt(rmse**2-temp_bias**2)
@@ -2301,8 +2331,9 @@ while station_number < num_scan_stations-1:
         axes[1,1].text(Scat_max+3, Scat_max-5, "RMS :"+str(round(rmse,2)), ha="left", va="center", size=10)
         axes[1,1].text(Scat_max+3, Scat_max-15, "BIAS:"+str(round(temp_bias,2)), ha="left", va="center", size=10)
         axes[1,1].text(Scat_max+3, Scat_max-22, "(ISSCP-ISMN)", ha="left", va="center", size=6)
-        axes[1,1].text(Scat_max+3, Scat_max-35, "R2:"+str(round(r_value,2)), ha="left", va="center", size=10)
+        axes[1,1].text(Scat_max+3, Scat_max-35, "R:"+str(round(r_value,2)), ha="left", va="center", size=10)
         axes[1,1].text(Scat_max+3, Scat_max-45, "ubRMSD:"+str(round(ubrmse,2)), ha="left", va="center", size=10)
+        axes[1,1].text(Scat_max+3, Scat_max-55, "p-value:"+str(round(p_value,2)), ha="left", va="center", size=10)
         
     ##################################################################################################################
     #####  PLOT THE Whole Dataset as a line plot for 18Z Top Layer COMPARISON
@@ -2320,7 +2351,7 @@ while station_number < num_scan_stations-1:
         #compute the bias
         filtered_diff=filtered_y_final-filtered_x_final
         temp_bias=np.sum(filtered_diff)/filtered_diff.shape[0]
-        print ('this r value for the 18 UTC ISSCP vs. ISMN LY2 '+str(stationsfile['Stat_Name'][station_number])+' is...', r_value)
+        print ('this r value for the 18 UTC ISSCP vs. ISMN LY2 '+CURR_SCANDATA.columns[station_number]+' is...', r_value)
         rmse = np.sqrt(np.nanmean((filtered_y_final-filtered_x_final)**2.))  #= math.sqrt(mse)
         ubrmse=np.sqrt(rmse**2-temp_bias**2)
         
@@ -2338,8 +2369,9 @@ while station_number < num_scan_stations-1:
         axes[2,1].text(Scat_max+3, Scat_max-5, "RMS :"+str(round(rmse,2)), ha="left", va="center", size=10)
         axes[2,1].text(Scat_max+3, Scat_max-15, "BIAS:"+str(round(temp_bias,2)), ha="left", va="center", size=10)
         axes[2,1].text(Scat_max+3, Scat_max-22, "(ISSCP-ISMN)", ha="left", va="center", size=6)
-        axes[2,1].text(Scat_max+3, Scat_max-35, "R2:"+str(round(r_value,2)), ha="left", va="center", size=10)
+        axes[2,1].text(Scat_max+3, Scat_max-35, "R:"+str(round(r_value,2)), ha="left", va="center", size=10)
         axes[2,1].text(Scat_max+3, Scat_max-45, "ubRMSD:"+str(round(ubrmse,2)), ha="left", va="center", size=10)
+        axes[2,1].text(Scat_max+3, Scat_max-55, "p-value:"+str(round(p_value,2)), ha="left", va="center", size=10)
         
     ##################################################################################################################
     #####  PLOT THE Whole Dataset as a line plot for 21Z Top Layer COMPARISON
@@ -2358,7 +2390,7 @@ while station_number < num_scan_stations-1:
         filtered_diff=filtered_y_final-filtered_x_final
         temp_bias=np.sum(filtered_diff)/filtered_diff.shape[0]
 
-        print ('this r value for the 21 UTC ISSCP vs. ISMN LY2 '+str(stationsfile['Stat_Name'][station_number])+' is...', r_value)
+        print ('this r value for the 21 UTC ISSCP vs. ISMN LY2 '+CURR_SCANDATA.columns[station_number]+' is...', r_value)
         rmse = np.sqrt(np.nanmean((filtered_y_final-filtered_x_final)**2.))  #= math.sqrt(mse)
         ubrmse=np.sqrt(rmse**2-temp_bias**2)
         
@@ -2377,24 +2409,25 @@ while station_number < num_scan_stations-1:
         axes[3,1].text(Scat_max+3, Scat_max-5, "RMS :"+str(round(rmse,2)), ha="left", va="center", size=10)
         axes[3,1].text(Scat_max+3, Scat_max-15, "BIAS:"+str(round(temp_bias,2)), ha="left", va="center", size=10)
         axes[3,1].text(Scat_max+3, Scat_max-22, "(ISSCP-ISMN)", ha="left", va="center", size=6)
-        axes[3,1].text(Scat_max+3, Scat_max-35, "R2:"+str(round(r_value,2)), ha="left", va="center", size=10)
+        axes[3,1].text(Scat_max+3, Scat_max-35, "R:"+str(round(r_value,2)), ha="left", va="center", size=10)
         axes[3,1].text(Scat_max+3, Scat_max-45, "ubRMSD:"+str(round(ubrmse,2)), ha="left", va="center", size=10)
+        axes[3,1].text(Scat_max+3, Scat_max-55, "p-value:"+str(round(p_value,2)), ha="left", va="center", size=10)
         
     plt.suptitle('ISCCP Skin Temperature vs. SCAN 10cm Soil Temp\n'+Plot_Labels_full, fontsize=18)
     
     #img_fname_pre=img_out_path+stationsfile['State Code'][station_number]+'-'+str(stationsfile['Stat_Name'][station_number])
-    img_fname_pre=img_out_path+str(stationsfile['Stat_Name'][station_number])
+    img_fname_pre=img_out_path+CURR_SCANDATA.columns[station_number]
     plt.savefig(img_fname_pre+'_ISCCPvsISMN10cm_'+BGDATE+'-'+EDATE+'_'+Plot_Labels+'.png')
     plt.close(figure)
     station_number+=1
 
-DF_ISCCPvsISMN_LY1=pandas.DataFrame(stations_ubrmse_array_L1, columns=list(stationsfile['Stat_Name']))
+DF_ISCCPvsISMN_LY1=pandas.DataFrame(stations_ubrmse_array_L1, columns=CURR_SCANDATA.columns[0:num_scan_stations-1])
 DF_ISCCPvsISMN_LY1.to_csv(img_out_path+'/'+'Station_Stats_UBRMSE_ISCCPvsISMN5cm_'+BGDATE+'-'+EDATE+'.csv')
 
-DF_ISCCPvsISMN_LY1=pandas.DataFrame(stations_bias_array_L1, columns=list(stationsfile['Stat_Name']))
+DF_ISCCPvsISMN_LY1=pandas.DataFrame(stations_bias_array_L1, columns=CURR_SCANDATA.columns[0:num_scan_stations-1])
 DF_ISCCPvsISMN_LY1.to_csv(img_out_path+'/'+'Station_Stats_BIAS_ISCCPvsISMN5cm_'+BGDATE+'-'+EDATE+'.csv')
 
-DF_ISCCPvsISMN_LY1=pandas.DataFrame(stations_corr_array_L1, columns=list(stationsfile['Stat_Name']))
+DF_ISCCPvsISMN_LY1=pandas.DataFrame(stations_corr_array_L1, columns=CURR_SCANDATA.columns[0:num_scan_stations-1])
 DF_ISCCPvsISMN_LY1.to_csv(img_out_path+'/'+'Station_Stats_CORR_ISCCPvsISMN5cm_'+BGDATE+'-'+EDATE+'.csv')
 
 ####
@@ -2474,10 +2507,10 @@ y_loc=0
 station_number=0
 while station_number < num_scan_stations-1:
     if (station_number < (num_scan_stations / 2.0)):
-        ax3.text(x_loc, y_loc, str(station_number+1)+"-"+stationsfile['Stat_Name'][station_number], ha="left", va="center", size=8)
+        ax3.text(x_loc, y_loc, str(station_number+1)+"-"+CURR_SCANDATA.columns[station_number], ha="left", va="center", size=8)
         old_y_loc=y_loc
     else:
-        ax3.text(x_loc+10, y_loc-old_y_loc, str(station_number+1)+"-"+stationsfile['Stat_Name'][station_number], ha="left", va="center", size=8)
+        ax3.text(x_loc+10, y_loc-old_y_loc, str(station_number+1)+"-"+CURR_SCANDATA.columns[station_number], ha="left", va="center", size=8)
     
     y_loc = y_loc + 2
     station_number+=1
@@ -2519,14 +2552,15 @@ axes[0,0].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cma
 axes[0,0].plot(filtered_x_final, filtered_x_final*slope_00+intercept_00, color='red', linewidth=2)
 axes[0,0].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
 axes[0,0].grid()
-axes[0,0].set_ylabel('ISCCP Skin T (K)', size=8)
+axes[0,0].set_ylabel('ISCCP Skin T (K)', size=12)
 bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
 axes[0,0].text(Scat_min+2,  Scat_max-10, "00 UTC", ha="left", va="center", size=12, bbox=bbox_props)
 axes[0,0].text(Scat_min-12, Scat_max-5,  "RMS :"+str(round(rmse_00,2)), ha="right", va="center", size=10)
 axes[0,0].text(Scat_min-12, Scat_max-15, "BIAS:"+str(round(temp_bias_00,2)), ha="right", va="center", size=10)
 axes[0,0].text(Scat_min-12, Scat_max-22, "(ISSCP-ISMN)", ha="right", va="center", size=6)
-axes[0,0].text(Scat_min-12, Scat_max-35, "R2:"+str(round(r_value_00,2)), ha="right", va="center", size=10)
+axes[0,0].text(Scat_min-12, Scat_max-35, "R:"+str(round(r_value_00,2)), ha="right", va="center", size=10)
 axes[0,0].text(Scat_min-12, Scat_max-45, "ubRMSD:"+str(round(ubrmse_00,2)), ha="right", va="center", size=10)
+axes[0,0].text(Scat_max-12, Scat_max-55, "p-value:"+str(round(p_value_00,2)), ha="left", va="center", size=10)
 
 
 ##################################################################################################################
@@ -2556,14 +2590,15 @@ axes[1,0].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cma
 axes[1,0].plot(filtered_x_final, filtered_x_final*slope_03+intercept_03, color='red', linewidth=2)
 axes[1,0].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
 axes[1,0].grid()
-axes[1,0].set_ylabel('ISCCP Skin T (K)', size=8)
+axes[1,0].set_ylabel('ISCCP Skin T (K)', size=12)
 bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
 axes[1,0].text(Scat_min+2,  Scat_max-10, "03 UTC", ha="left", va="center", size=12, bbox=bbox_props)
 axes[1,0].text(Scat_min-12, Scat_max-5,  "RMS :"+str(round(rmse_03,2)), ha="right", va="center", size=10)
 axes[1,0].text(Scat_min-12, Scat_max-15, "BIAS:"+str(round(temp_bias_03,2)), ha="right", va="center", size=10)
 axes[1,0].text(Scat_min-12, Scat_max-22, "(ISSCP-ISMN)", ha="right", va="center", size=6)
-axes[1,0].text(Scat_min-12, Scat_max-35, "R2:"+str(round(r_value_03,2)), ha="right", va="center", size=10)
+axes[1,0].text(Scat_min-12, Scat_max-35, "R:"+str(round(r_value_03,2)), ha="right", va="center", size=10)
 axes[1,0].text(Scat_min-12, Scat_max-45, "ubRMSD:"+str(round(ubrmse_03,2)), ha="right", va="center", size=10)
+axes[1,0].text(Scat_max-12, Scat_max-55, "p-value:"+str(round(p_value_03,2)), ha="left", va="center", size=10)
 
 ##################################################################################################################
 #####  PLOT THE Whole Dataset as a line plot for 06Z Top Layer COMPARISON
@@ -2591,14 +2626,15 @@ axes[2,0].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cma
 axes[2,0].plot(filtered_x_final, filtered_x_final*slope_06+intercept_06, color='red', linewidth=2)
 axes[2,0].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
 axes[2,0].grid()
-axes[2,0].set_ylabel('ISCCP Skin T (K)', size=8)
+axes[2,0].set_ylabel('ISCCP Skin T (K)', size=12)
 bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
 axes[2,0].text(Scat_min+2,  Scat_max-10, "06 UTC", ha="left", va="center", size=12, bbox=bbox_props)
 axes[2,0].text(Scat_min-12, Scat_max-5,  "RMS :"+str(round(rmse_06,2)), ha="right", va="center", size=10)
 axes[2,0].text(Scat_min-12, Scat_max-15, "BIAS:"+str(round(temp_bias_06,2)), ha="right", va="center", size=10)
 axes[2,0].text(Scat_min-12, Scat_max-22, "(ISSCP-ISMN)", ha="right", va="center", size=6)
-axes[2,0].text(Scat_min-12, Scat_max-35, "R2:"+str(round(r_value_06,2)), ha="right", va="center", size=10)
+axes[2,0].text(Scat_min-12, Scat_max-35, "R:"+str(round(r_value_06,2)), ha="right", va="center", size=10)
 axes[2,0].text(Scat_min-12, Scat_max-45, "ubRMSD:"+str(round(ubrmse_06,2)), ha="right", va="center", size=10)
+axes[2,0].text(Scat_max-12, Scat_max-55, "p-value:"+str(round(p_value_06,2)), ha="left", va="center", size=10)
 
 ##################################################################################################################
 #####  PLOT THE Whole Dataset as a line plot for 09Z Top Layer COMPARISON
@@ -2626,15 +2662,16 @@ axes[3,0].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cma
 axes[3,0].plot(filtered_x_final, filtered_x_final*slope_09+intercept_09, color='red', linewidth=2)
 axes[3,0].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
 axes[3,0].grid()
-axes[3,0].set_ylabel('ISCCP Skin T (K)')
-axes[3,0].set_xlabel('ISMN 5cm Tsoil (K)', size=8)
+axes[3,0].set_ylabel('ISCCP Skin T (K)', size=12)
+axes[3,0].set_xlabel('ISMN 5cm Tsoil (K)', size=12)
 bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
 axes[3,0].text(Scat_min+2,  Scat_max-10, "09 UTC", ha="left", va="center", size=12, bbox=bbox_props)
 axes[3,0].text(Scat_min-12, Scat_max-5,  "RMS :"+str(round(rmse_09,2)), ha="right", va="center", size=10)
 axes[3,0].text(Scat_min-12, Scat_max-15, "BIAS:"+str(round(temp_bias_09,2)), ha="right", va="center", size=10)
 axes[3,0].text(Scat_min-12, Scat_max-22, "(ISSCP-ISMN)", ha="right", va="center", size=6)
-axes[3,0].text(Scat_min-12, Scat_max-35, "R2:"+str(round(r_value_09,2)), ha="right", va="center", size=10)
+axes[3,0].text(Scat_min-12, Scat_max-35, "R:"+str(round(r_value_09,2)), ha="right", va="center", size=10)
 axes[3,0].text(Scat_min-12, Scat_max-45, "ubRMSD:"+str(round(ubrmse_09,2)), ha="right", va="center", size=10)
+axes[3,0].text(Scat_max-12, Scat_max-55, "p-value:"+str(round(p_value_09,2)), ha="left", va="center", size=10)
     
 ##################################################################################################################
 #####  PLOT THE Whole Dataset as a line plot for 12Z Top Layer COMPARISON
@@ -2663,14 +2700,15 @@ axes[0,1].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cma
 axes[0,1].plot(filtered_x_final, filtered_x_final*slope_12+intercept_12, color='red', linewidth=2)
 axes[0,1].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
 axes[0,1].grid()
-axes[0,1].set_ylabel('ISCCP Skin T (K)', size=8)
+axes[0,1].set_ylabel('ISCCP Skin T (K)', size=12)
 bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
 axes[0,1].text(Scat_min+2, Scat_max-10, "12 UTC", ha="left", va="center", size=12, bbox=bbox_props)
 axes[0,1].text(Scat_max+3, Scat_max-5, "RMS :"+str(round(rmse_12,2)), ha="left", va="center", size=10)
 axes[0,1].text(Scat_max+3, Scat_max-15, "BIAS:"+str(round(temp_bias_12,2)), ha="left", va="center", size=10)
 axes[0,1].text(Scat_max+3, Scat_max-22, "(ISSCP-ISMN)", ha="left", va="center", size=6)
-axes[0,1].text(Scat_max+3, Scat_max-35, "R2:"+str(round(r_value_12,2)), ha="left", va="center", size=10)
+axes[0,1].text(Scat_max+3, Scat_max-35, "R:"+str(round(r_value_12,2)), ha="left", va="center", size=10)
 axes[0,1].text(Scat_max+3, Scat_max-45, "ubRMSD:"+str(round(ubrmse_12,2)), ha="left", va="center", size=10)
+axes[0,1].text(Scat_max+3, Scat_max-55, "p-value:"+str(round(p_value_12,2)), ha="left", va="center", size=10)
 
 ##################################################################################################################
 #####  PLOT THE Whole Dataset as a line plot for 15Z Top Layer COMPARISON
@@ -2699,14 +2737,15 @@ axes[1,1].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cma
 axes[1,1].plot(filtered_x_final, filtered_x_final*slope_15+intercept_15, color='red', linewidth=2)
 axes[1,1].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
 axes[1,1].grid()
-axes[1,1].set_ylabel('ISCCP Skin T (K)', size=8)
+axes[1,1].set_ylabel('ISCCP Skin T (K)', size=12)
 bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
 axes[1,1].text(Scat_min+2, Scat_max-10, "15 UTC", ha="left", va="center", size=12, bbox=bbox_props)
 axes[1,1].text(Scat_max+3, Scat_max-5, "RMS :"+str(round(rmse_15,2)), ha="left", va="center", size=10)
 axes[1,1].text(Scat_max+3, Scat_max-15, "BIAS:"+str(round(temp_bias_15,2)), ha="left", va="center", size=10)
 axes[1,1].text(Scat_max+3, Scat_max-22, "(ISSCP-ISMN)", ha="left", va="center", size=6)
-axes[1,1].text(Scat_max+3, Scat_max-35, "R2:"+str(round(r_value_15,2)), ha="left", va="center", size=10)
+axes[1,1].text(Scat_max+3, Scat_max-35, "R:"+str(round(r_value_15,2)), ha="left", va="center", size=10)
 axes[1,1].text(Scat_max+3, Scat_max-45, "ubRMSD:"+str(round(ubrmse_15,2)), ha="left", va="center", size=10)
+axes[1,1].text(Scat_max+3, Scat_max-55, "p-value:"+str(round(p_value_15,2)), ha="left", va="center", size=10)
 
 ##################################################################################################################
 #####  PLOT THE Whole Dataset as a line plot for 18Z Top Layer COMPARISON
@@ -2735,14 +2774,15 @@ axes[2,1].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cma
 axes[2,1].plot(filtered_x_final, filtered_x_final*slope_18+intercept_18, color='red', linewidth=2)
 axes[2,1].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
 axes[2,1].grid()
-axes[2,1].set_ylabel('ISCCP Skin T (K)', size=8)
+axes[2,1].set_ylabel('ISCCP Skin T (K)', size=12)
 bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
 axes[2,1].text(Scat_min+2, Scat_max-10, "18 UTC", ha="left", va="center", size=12, bbox=bbox_props)
 axes[2,1].text(Scat_max+3, Scat_max-5, "RMS :"+str(round(rmse_18,2)), ha="left", va="center", size=10)
 axes[2,1].text(Scat_max+3, Scat_max-15, "BIAS:"+str(round(temp_bias_18,2)), ha="left", va="center", size=10)
 axes[2,1].text(Scat_max+3, Scat_max-22, "(ISSCP-ISMN)", ha="left", va="center", size=8)
-axes[2,1].text(Scat_max+3, Scat_max-35, "R2:"+str(round(r_value_18,2)), ha="left", va="center", size=10)
+axes[2,1].text(Scat_max+3, Scat_max-35, "R:"+str(round(r_value_18,2)), ha="left", va="center", size=10)
 axes[2,1].text(Scat_max+3, Scat_max-45, "ubRMSD:"+str(round(ubrmse_18,2)), ha="left", va="center", size=10)
+axes[2,1].text(Scat_max+3, Scat_max-55, "p-value:"+str(round(p_value_18,2)), ha="left", va="center", size=10)
 
 ##################################################################################################################
 #####  PLOT THE Whole Dataset as a line plot for 21Z Top Layer COMPARISON
@@ -2773,15 +2813,16 @@ axes[3,1].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
 axes[3,1].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
 axes[3,1].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
 axes[3,1].grid()
-axes[3,1].set_ylabel('ISCCP Skin T (K)')
-axes[3,1].set_xlabel('ISMN 5 cm Tsoil (K)', size=8)
+axes[3,1].set_ylabel('ISCCP Skin T (K)', size=12)
+axes[3,1].set_xlabel('ISMN 5 cm Tsoil (K)', size=12)
 bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
 axes[3,1].text(Scat_min+2, Scat_max-10, "21 UTC", ha="left", va="center", size=12, bbox=bbox_props)
 axes[3,1].text(Scat_max+3, Scat_max-5, "RMS :"+str(round(rmse_21,2)), ha="left", va="center", size=10)
 axes[3,1].text(Scat_max+3, Scat_max-15, "BIAS:"+str(round(temp_bias_21,2)), ha="left", va="center", size=10)
 axes[3,1].text(Scat_max+3, Scat_max-22, "(ISSCP-ISMN)", ha="left", va="center", size=8)
-axes[3,1].text(Scat_max+3, Scat_max-35, "R2:"+str(round(r_value_21,2)), ha="left", va="center", size=10)
+axes[3,1].text(Scat_max+3, Scat_max-35, "R:"+str(round(r_value_21,2)), ha="left", va="center", size=10)
 axes[3,1].text(Scat_max+3, Scat_max-45, "ubRMSD:"+str(round(ubrmse_21,2)), ha="left", va="center", size=10)
+axes[3,1].text(Scat_max+3, Scat_max-55, "p-value:"+str(round(p_value_21,2)), ha="left", va="center", size=10)
     
 plt.suptitle('ISCCP Skin Temperature vs. ISMN 5cm Soil Temp\n'+Plot_Labels_full, fontsize=18)
 
@@ -2796,10 +2837,10 @@ plt.close(figure)
 
 figure, axes=plt.subplots(nrows=4, ncols=1, figsize=(8,8))
 
-Bias_array=np.array((temp_bias_00, temp_bias_03, temp_bias_06, temp_bias_09, temp_bias_12, temp_bias_15, temp_bias_18, temp_bias_21))
-CORR_array=np.array((r_value_00, r_value_03, r_value_06, r_value_09, r_value_12, r_value_15, r_value_18, r_value_21))
-RMSE_array=np.array((rmse_00, rmse_03, rmse_06, rmse_09, rmse_12, rmse_15, rmse_18, rmse_21))
-ubRMSE_array=np.array((ubrmse_00, ubrmse_03, ubrmse_06, ubrmse_09, ubrmse_12, ubrmse_15, ubrmse_18, ubrmse_21))
+Bias_array_LY1=np.array((temp_bias_00, temp_bias_03, temp_bias_06, temp_bias_09, temp_bias_12, temp_bias_15, temp_bias_18, temp_bias_21))
+CORR_array_LY1=np.array((r_value_00, r_value_03, r_value_06, r_value_09, r_value_12, r_value_15, r_value_18, r_value_21))
+RMSE_array_LY1=np.array((rmse_00, rmse_03, rmse_06, rmse_09, rmse_12, rmse_15, rmse_18, rmse_21))
+ubRMSE_array_LY1=np.array((ubrmse_00, ubrmse_03, ubrmse_06, ubrmse_09, ubrmse_12, ubrmse_15, ubrmse_18, ubrmse_21))
 
 x_array=np.array((1,2,3,4,5,6,7,8))
 
@@ -2807,7 +2848,7 @@ axes[0].set_ylim(-20, 20)
 axes[0].set_xlim(0, 9)
 axes[0].grid(which='major', axis='y')
 axes[0].set_xticklabels([])
-axes[0].plot(x_array, Bias_array, color='red', linewidth=2)
+axes[0].plot(x_array, Bias_array_LY1, color='red', linewidth=2)
 axes[0].set_ylabel('Bias')
 
 
@@ -2816,7 +2857,7 @@ axes[1].set_xlim(0, 9)
 axes[1].grid(which='major', axis='y')
 axes[1].set_xticks([0,1,2,3,4,5,6,7,8])
 axes[1].set_xticklabels([])
-axes[1].plot(x_array, CORR_array, color='blue', linewidth=2)
+axes[1].plot(x_array, CORR_array_LY1, color='blue', linewidth=2)
 axes[1].set_ylabel('Correlation')
 
 axes[2].set_ylim(-10, 10)
@@ -2824,7 +2865,7 @@ axes[2].set_xlim(0, 9)
 axes[2].grid(which='major', axis='y')
 axes[2].set_xticks([0,1,2,3,4,5,6,7,8])
 axes[2].set_xticklabels([])
-axes[2].plot(x_array, RMSE_array, color='green', linewidth=2)
+axes[2].plot(x_array, RMSE_array_LY1, color='green', linewidth=2)
 axes[2].set_ylabel('RMSE')
 plt.subplots_adjust(wspace=None, hspace=None)
 
@@ -2833,7 +2874,7 @@ axes[3].set_xlim(0, 9)
 axes[3].grid(which='major', axis='y')
 axes[3].set_xticks([0,1,2,3,4,5,6,7,8])
 axes[3].set_xticklabels([' ', '00', '03', '06', '09', '12', '15', '18', '21'], size=10)
-axes[3].plot(x_array, ubRMSE_array, color='green', linewidth=2)
+axes[3].plot(x_array, ubRMSE_array_LY1, color='green', linewidth=2)
 axes[3].set_ylabel('ubRMSE')
 axes[3].set_xlabel('Time of Day (UTC)', size=8)
 plt.subplots_adjust(wspace=None, hspace=None)
@@ -2874,14 +2915,15 @@ axes[0,0].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cma
 axes[0,0].plot(filtered_x_final, filtered_x_final*slope_00_L1+intercept_00_L1, color='red', linewidth=2)
 axes[0,0].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
 axes[0,0].grid()
-axes[0,0].set_ylabel('ISCCP Skin T (K)', size=8)
+axes[0,0].set_ylabel('ISCCP Skin T (K)', size=10)
 bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
 axes[0,0].text(Scat_min+2,  Scat_max-10, "00 UTC", ha="left", va="center", size=12, bbox=bbox_props)
 axes[0,0].text(Scat_min-12, Scat_max-5,  "RMS :"+str(round(rmse_00_L1,2)), ha="right", va="center", size=10)
 axes[0,0].text(Scat_min-12, Scat_max-15, "BIAS:"+str(round(temp_bias_00_L1,2)), ha="right", va="center", size=10)
 axes[0,0].text(Scat_min-12, Scat_max-22, "(ISSCP-ISMN)", ha="right", va="center", size=6)
-axes[0,0].text(Scat_min-12, Scat_max-35, "R2:"+str(round(r_value_00_L1,2)), ha="right", va="center", size=10)
+axes[0,0].text(Scat_min-12, Scat_max-35, "R:"+str(round(r_value_00_L1,2)), ha="right", va="center", size=10)
 axes[0,0].text(Scat_min-12, Scat_max-45, "ubRMSD:"+str(round(ubrmse_00_L1,2)), ha="right", va="center", size=10)
+axes[0,0].text(Scat_max-12, Scat_max-55, "p-value:"+str(round(p_value_00_L1,2)), ha="left", va="center", size=10)
 
 ##################################################################################################################
 #####  Generate an 8-panel scatter plot of ISCCP versus SCAN Layer 2 soil temps for each station 03Z
@@ -2910,14 +2952,15 @@ axes[1,0].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cma
 axes[1,0].plot(filtered_x_final, filtered_x_final*slope_03_L1+intercept_03_L1, color='red', linewidth=2)
 axes[1,0].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
 axes[1,0].grid()
-axes[1,0].set_ylabel('ISCCP Skin T (K)', size=8)
+axes[1,0].set_ylabel('ISCCP Skin T (K)', size=10)
 bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
 axes[1,0].text(Scat_min+2,  Scat_max-10, "03 UTC", ha="left", va="center", size=12, bbox=bbox_props)
 axes[1,0].text(Scat_min-12, Scat_max-5,  "RMS :"+str(round(rmse_03_L1,2)), ha="right", va="center", size=10)
 axes[1,0].text(Scat_min-12, Scat_max-15, "BIAS:"+str(round(temp_bias_03_L1,2)), ha="right", va="center", size=10)
 axes[1,0].text(Scat_min-12, Scat_max-22, "(ISSCP-ISMN)", ha="right", va="center", size=6)
-axes[1,0].text(Scat_min-12, Scat_max-35, "R2:"+str(round(r_value_03_L1,2)), ha="right", va="center", size=10)
+axes[1,0].text(Scat_min-12, Scat_max-35, "R:"+str(round(r_value_03_L1,2)), ha="right", va="center", size=10)
 axes[1,0].text(Scat_min-12, Scat_max-45, "ubRMSD:"+str(round(ubrmse_03_L1,2)), ha="right", va="center", size=10)
+axes[1,0].text(Scat_max-12, Scat_max-55, "p-value:"+str(round(p_value_03_L1,2)), ha="left", va="center", size=10)
 
 ##################################################################################################################
 #####  Generate an 8-panel scatter plot of ISCCP versus SCAN Layer 2 soil temps for each station 06Z
@@ -2945,14 +2988,15 @@ axes[2,0].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cma
 axes[2,0].plot(filtered_x_final, filtered_x_final*slope_06_L1+intercept_06_L1, color='red', linewidth=2)
 axes[2,0].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
 axes[2,0].grid()
-axes[2,0].set_ylabel('ISCCP Skin T (K)', size=8)
+axes[2,0].set_ylabel('ISCCP Skin T (K)', size=10)
 bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
 axes[2,0].text(Scat_min+2,  Scat_max-10, "06 UTC", ha="left", va="center", size=12, bbox=bbox_props)
 axes[2,0].text(Scat_min-12, Scat_max-5,  "RMS :"+str(round(rmse_06_L1,2)), ha="right", va="center", size=10)
 axes[2,0].text(Scat_min-12, Scat_max-15, "BIAS:"+str(round(temp_bias_06_L1,2)), ha="right", va="center", size=10)
 axes[2,0].text(Scat_min-12, Scat_max-22, "(ISSCP-ISMN)", ha="right", va="center", size=6)
-axes[2,0].text(Scat_min-12, Scat_max-35, "R2:"+str(round(r_value_06_L1,2)), ha="right", va="center", size=10)
+axes[2,0].text(Scat_min-12, Scat_max-35, "R:"+str(round(r_value_06_L1,2)), ha="right", va="center", size=10)
 axes[2,0].text(Scat_min-12, Scat_max-45, "ubRMSD:"+str(round(ubrmse_06_L1,2)), ha="right", va="center", size=10)
+axes[2,0].text(Scat_max-12, Scat_max-55, "p-value:"+str(round(p_value_06_L1,2)), ha="left", va="center", size=10)
 
 ##################################################################################################################
 #####  Generate an 8-panel scatter plot of ISCCP versus SCAN Layer 2 soil temps for each station 09Z
@@ -2980,15 +3024,16 @@ axes[3,0].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cma
 axes[3,0].plot(filtered_x_final, filtered_x_final*slope_09_L1+intercept_09_L1, color='red', linewidth=2)
 axes[3,0].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
 axes[3,0].grid()
-axes[3,0].set_ylabel('ISCCP Skin T (K)')
-axes[3,0].set_xlabel('ISMN 10cm Tsoil (K)', size=8)
+axes[3,0].set_ylabel('ISCCP Skin T (K)', size=10)
+axes[3,0].set_xlabel('ISMN 10cm Tsoil (K)', size=12)
 bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
 axes[3,0].text(Scat_min+2,  Scat_max-10, "09 UTC", ha="left", va="center", size=12, bbox=bbox_props)
 axes[3,0].text(Scat_min-12, Scat_max-5,  "RMS :"+str(round(rmse_09_L1,2)), ha="right", va="center", size=10)
 axes[3,0].text(Scat_min-12, Scat_max-15, "BIAS:"+str(round(temp_bias_09_L1,2)), ha="right", va="center", size=10)
 axes[3,0].text(Scat_min-12, Scat_max-22, "(ISSCP-ISMN)", ha="right", va="center", size=6)
-axes[3,0].text(Scat_min-12, Scat_max-35, "R2:"+str(round(r_value_09_L1,2)), ha="right", va="center", size=10)
+axes[3,0].text(Scat_min-12, Scat_max-35, "R:"+str(round(r_value_09_L1,2)), ha="right", va="center", size=10)
 axes[3,0].text(Scat_min-12, Scat_max-45, "ubRMSD:"+str(round(ubrmse_09_L1,2)), ha="right", va="center", size=10)
+axes[3,0].text(Scat_max-12, Scat_max-55, "p-value:"+str(round(p_value_09_L1,2)), ha="left", va="center", size=10)
     
 ##################################################################################################################
 #####  PLOT THE Whole Dataset as a line plot for 00Z Top Layer COMPARISON
@@ -3017,14 +3062,15 @@ axes[0,1].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cma
 axes[0,1].plot(filtered_x_final, filtered_x_final*slope_12_L1+intercept_12_L1, color='red', linewidth=2)
 axes[0,1].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
 axes[0,1].grid()
-axes[0,1].set_ylabel('ISCCP Skin T (K)', size=8)
+axes[0,1].set_ylabel('ISCCP Skin T (K)', size=10)
 bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
 axes[0,1].text(Scat_min+2, Scat_max-10, "12 UTC", ha="left", va="center", size=12, bbox=bbox_props)
 axes[0,1].text(Scat_max+3, Scat_max-5, "RMS :"+str(round(rmse_12_L1,2)), ha="left", va="center", size=10)
 axes[0,1].text(Scat_max+3, Scat_max-15, "BIAS:"+str(round(temp_bias_12_L1,2)), ha="left", va="center", size=10)
 axes[0,1].text(Scat_max+3, Scat_max-22, "(ISSCP-ISMN)", ha="left", va="center", size=6)
-axes[0,1].text(Scat_max+3, Scat_max-35, "R2:"+str(round(r_value_12_L1,2)), ha="left", va="center", size=10)
+axes[0,1].text(Scat_max+3, Scat_max-35, "R:"+str(round(r_value_12_L1,2)), ha="left", va="center", size=10)
 axes[0,1].text(Scat_max+3, Scat_max-45, "ubRMSD:"+str(round(ubrmse_12_L1,2)), ha="left", va="center", size=10)
+axes[0,1].text(Scat_max+3, Scat_max-55, "p-value:"+str(round(p_value_12_L1,2)), ha="left", va="center", size=10)
 
 ##################################################################################################################
 #####  PLOT THE Whole Dataset as a line plot for 06Z Top Layer COMPARISON
@@ -3053,14 +3099,15 @@ axes[1,1].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cma
 axes[1,1].plot(filtered_x_final, filtered_x_final*slope_15_L1+intercept_15_L1, color='red', linewidth=2)
 axes[1,1].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
 axes[1,1].grid()
-axes[1,1].set_ylabel('ISCCP Skin T (K)', size=8)
+axes[1,1].set_ylabel('ISCCP Skin T (K)', size=10)
 bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
 axes[1,1].text(Scat_min+2, Scat_max-10, "15 UTC", ha="left", va="center", size=12, bbox=bbox_props)
 axes[1,1].text(Scat_max+3, Scat_max-5, "RMS :"+str(round(rmse_15_L1,2)), ha="left", va="center", size=10)
 axes[1,1].text(Scat_max+3, Scat_max-15, "BIAS:"+str(round(temp_bias_15_L1,2)), ha="left", va="center", size=10)
 axes[1,1].text(Scat_max+3, Scat_max-22, "(ISSCP-ISMN)", ha="left", va="center", size=6)
-axes[1,1].text(Scat_max+3, Scat_max-35, "R2:"+str(round(r_value_15_L1,2)), ha="left", va="center", size=10)
+axes[1,1].text(Scat_max+3, Scat_max-35, "R:"+str(round(r_value_15_L1,2)), ha="left", va="center", size=10)
 axes[1,1].text(Scat_max+3, Scat_max-45, "ubRMSD:"+str(round(ubrmse_15_L1,2)), ha="left", va="center", size=10)
+axes[1,1].text(Scat_max+3, Scat_max-55, "p-value:"+str(round(p_value_15_L1,2)), ha="left", va="center", size=10)
 
 ##################################################################################################################
 #####  PLOT THE Whole Dataset as a line plot for 12Z Top Layer COMPARISON
@@ -3089,14 +3136,15 @@ axes[2,1].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cma
 axes[2,1].plot(filtered_x_final, filtered_x_final*slope_18_L1+intercept_18_L1, color='red', linewidth=2)
 axes[2,1].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
 axes[2,1].grid()
-axes[2,1].set_ylabel('ISCCP Skin T (K)', size=8)
+axes[2,1].set_ylabel('ISCCP Skin T (K)', size=10)
 bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
 axes[2,1].text(Scat_min+2, Scat_max-10, "18 UTC", ha="left", va="center", size=12, bbox=bbox_props)
 axes[2,1].text(Scat_max+3, Scat_max-5, "RMS :"+str(round(rmse_18_L1,2)), ha="left", va="center", size=10)
 axes[2,1].text(Scat_max+3, Scat_max-15, "BIAS:"+str(round(temp_bias_18_L1,2)), ha="left", va="center", size=10)
 axes[2,1].text(Scat_max+3, Scat_max-22, "(ISSCP-ISMN)", ha="left", va="center", size=6)
-axes[2,1].text(Scat_max+3, Scat_max-35, "R2:"+str(round(r_value_18_L1,2)), ha="left", va="center", size=10)
+axes[2,1].text(Scat_max+3, Scat_max-35, "R:"+str(round(r_value_18_L1,2)), ha="left", va="center", size=10)
 axes[2,1].text(Scat_max+3, Scat_max-45, "ubRMSD:"+str(round(ubrmse_18_L1,2)), ha="left", va="center", size=10)
+axes[2,1].text(Scat_max+3, Scat_max-55, "p-value:"+str(round(p_value_18_L1,2)), ha="left", va="center", size=10)
 
 ##################################################################################################################
 #####  PLOT THE Whole Dataset as a line plot for 18Z Top Layer COMPARISON
@@ -3125,15 +3173,16 @@ axes[3,1].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cma
 axes[3,1].plot(filtered_x_final, filtered_x_final*slope_21_L1+intercept_21_L1, color='red', linewidth=2)
 axes[3,1].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
 axes[3,1].grid()
-axes[3,1].set_ylabel('ISCCP Skin T (K)')
-axes[3,1].set_xlabel('ISMN 10cm Tsoil (K)', size=8)
+axes[3,1].set_ylabel('ISCCP Skin T (K)', size=10)
+axes[3,1].set_xlabel('ISMN 10cm Tsoil (K)', size=12)
 bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
 axes[3,1].text(Scat_min+2, Scat_max-10, "21 UTC", ha="left", va="center", size=12, bbox=bbox_props)
 axes[3,1].text(Scat_max+3, Scat_max-5, "RMS :"+str(round(rmse_21_L1,2)), ha="left", va="center", size=10)
 axes[3,1].text(Scat_max+3, Scat_max-15, "BIAS:"+str(round(temp_bias_21_L1,2)), ha="left", va="center", size=10)
 axes[3,1].text(Scat_max+3, Scat_max-22, "(ISSCP-ISMN)", ha="left", va="center", size=6)
-axes[3,1].text(Scat_max+3, Scat_max-35, "R2:"+str(round(r_value_21_L1,2)), ha="left", va="center", size=10)
+axes[3,1].text(Scat_max+3, Scat_max-35, "R:"+str(round(r_value_21_L1,2)), ha="left", va="center", size=10)
 axes[3,1].text(Scat_max+3, Scat_max-45, "ubRMSD:"+str(round(ubrmse_21_L1,2)), ha="left", va="center", size=10)
+axes[3,1].text(Scat_max+3, Scat_max-55, "p-value:"+str(round(p_value_21_L1,2)), ha="left", va="center", size=10)
     
 plt.suptitle('ISCCP Skin Temperature vs. ISMN 10cm Soil Temp\n'+Plot_Labels_full, fontsize=18)
 
@@ -3149,48 +3198,55 @@ plt.close(figure)
 
 figure, axes=plt.subplots(nrows=4, ncols=1, figsize=(8,8))
 
-Bias_array=np.array((temp_bias_00_L1, temp_bias_03_L1, temp_bias_06_L1, temp_bias_09_L1, temp_bias_12_L1, temp_bias_15_L1, temp_bias_18_L1, temp_bias_21_L1))
-CORR_array=np.array((r_value_00_L1, r_value_03_L1, r_value_06_L1, r_value_09_L1, r_value_12_L1, r_value_15_L1, r_value_18_L1, r_value_21_L1))
-RMSE_array=np.array((rmse_00_L1, rmse_03_L1, rmse_06_L1, rmse_09_L1, rmse_12_L1, rmse_15_L1, rmse_18_L1, rmse_21_L1))
-ubRMSE_array=np.array((ubrmse_00_L1, ubrmse_03_L1, ubrmse_06_L1, ubrmse_09_L1, ubrmse_12_L1, ubrmse_15_L1, ubrmse_18_L1, ubrmse_21_L1))
+Bias_array_LY2=np.array((temp_bias_00_L1, temp_bias_03_L1, temp_bias_06_L1, temp_bias_09_L1, temp_bias_12_L1, temp_bias_15_L1, temp_bias_18_L1, temp_bias_21_L1))
+CORR_array_LY2=np.array((r_value_00_L1, r_value_03_L1, r_value_06_L1, r_value_09_L1, r_value_12_L1, r_value_15_L1, r_value_18_L1, r_value_21_L1))
+RMSE_array_LY2=np.array((rmse_00_L1, rmse_03_L1, rmse_06_L1, rmse_09_L1, rmse_12_L1, rmse_15_L1, rmse_18_L1, rmse_21_L1))
+ubRMSE_array_LY2=np.array((ubrmse_00_L1, ubrmse_03_L1, ubrmse_06_L1, ubrmse_09_L1, ubrmse_12_L1, ubrmse_15_L1, ubrmse_18_L1, ubrmse_21_L1))
 
 x_array=np.array((1,2,3,4,5,6,7,8))
 
-axes[0].set_ylim(-20, 20)
+axes[0].set_ylim(-15, 20)
 axes[0].set_xlim(0, 9)
 axes[0].grid(which='major', axis='y')
 axes[0].set_xticks([0,1,2,3,4,5,6,7,8])
 axes[0].set_xticklabels([])
-axes[0].plot(x_array, Bias_array, color='red', linewidth=2)
+axes[0].plot(x_array, Bias_array_LY2, color='red', linewidth=2, linestyle='dotted', label='10-cm vs. ISCCP')
+axes[0].plot(x_array, Bias_array_LY1, color='red', linewidth=2, label='5-cm vs. ISCCP')
 axes[0].set_ylabel('Bias')
+axes[0].legend(loc='lower right', edgecolor="none", borderaxespad=0.)
 
-
-axes[1].set_ylim(-1, 1)
+axes[1].set_ylim(0, 1)
 axes[1].set_xlim(0, 9)
 axes[1].grid(which='major', axis='y')
 axes[1].set_xticks([0,1,2,3,4,5,6,7,8])
 axes[1].set_xticklabels([])
-axes[1].plot(x_array, CORR_array, color='blue', linewidth=2)
+axes[1].plot(x_array, CORR_array_LY2, color='blue', linewidth=2, linestyle='dotted', label='10-cm vs. ISCCP')
+axes[1].plot(x_array, CORR_array_LY1, color='blue', linewidth=2, label='5-cm vs. ISCCP')
 axes[1].set_ylabel('Correlation')
+axes[1].legend(loc='lower right', edgecolor="none", borderaxespad=0.)
 
-axes[2].set_ylim(-10, 10)
+axes[2].set_ylim(0, 15)
 axes[2].set_xlim(0, 9)
 axes[2].grid(which='major', axis='y')
 axes[2].set_xticks([0,1,2,3,4,5,6,7,8])
 axes[2].set_xticklabels([])
-axes[2].plot(x_array, RMSE_array, color='green', linewidth=2)
+axes[2].plot(x_array, RMSE_array_LY2, color='green', linewidth=2, linestyle='dotted', label='10-cm vs. ISCCP')
+axes[2].plot(x_array, RMSE_array_LY1, color='green', linewidth=2, label='5-cm vs. ISCCP')
 axes[2].set_ylabel('RMSE')
 plt.subplots_adjust(wspace=None, hspace=None)
+axes[2].legend(loc='lower right', edgecolor="none", borderaxespad=0.)
 
-axes[3].set_ylim(-10, 10)
+axes[3].set_ylim(0,15)
 axes[3].set_xlim(0, 9)
 axes[3].grid(which='major', axis='y')
 axes[3].set_xticks([0,1,2,3,4,5,6,7,8])
 axes[3].set_xticklabels([' ', '00', '03', '06', '09', '12', '15', '18', '21'], size=10)
-axes[3].plot(x_array, ubRMSE_array, color='black', linewidth=2)
+axes[3].plot(x_array, ubRMSE_array_LY2, color='black', linewidth=2, linestyle='dotted', label='10-cm vs. ISCCP')
+axes[3].plot(x_array, ubRMSE_array_LY1, color='black', linewidth=2, label='5-cm vs. ISCCP')
 axes[3].set_ylabel('ubRMSE')
 axes[3].set_xlabel('Time of Day (UTC)', size=8)
 plt.subplots_adjust(wspace=None, hspace=None)
+axes[3].legend(loc='lower right', edgecolor="none", borderaxespad=0.)
 
 plt.suptitle('ISCCP Skin Temperature vs. ISMN 5cm Soil Temp Statistics\n'+Plot_Labels_full, fontsize=18)
 img_fname_pre=img_out_path
@@ -3228,15 +3284,16 @@ axes[0,0].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cma
 axes[0,0].plot(filtered_x_final, filtered_x_final*slope_WinScan_00_L0+intercept_WinScan_00_L0, color='red', linewidth=2)
 axes[0,0].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
 axes[0,0].grid()
-axes[0,0].set_ylabel('ISCCP Skin T (K)')
-axes[0,0].set_xlabel('ISMN 5cm Tsoil (K)', size=8)
+axes[0,0].set_ylabel('ISCCP Skin T (K)', size=10)
+axes[0,0].set_xlabel('ISMN 5cm Tsoil (K)', size=12)
 bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
 axes[0,0].text(Scat_min+2,  Scat_max-10, "00 UTC", ha="left", va="center", size=12, bbox=bbox_props)
 axes[0,0].text(Scat_min-12, Scat_max-5, "RMS :"+str(round(rmse_WinISCCP_00_L0,2)), ha="right", va="center", size=10)
 axes[0,0].text(Scat_min-12, Scat_max-15, "BIAS:"+str(round(temp_bias_WinISCCP_00_L0,2)), ha="right", va="center", size=10)
 axes[0,0].text(Scat_min-12, Scat_max-22, "(ISSCP-ISMN)", ha="right", va="center", size=6)
-axes[0,0].text(Scat_min-12, Scat_max-35, "R2:"+str(round(r_value_WinScan_00_L0,2)), ha="right", va="center", size=10)
+axes[0,0].text(Scat_min-12, Scat_max-35, "R:"+str(round(r_value_WinScan_00_L0,2)), ha="right", va="center", size=10)
 axes[0,0].text(Scat_min-12, Scat_max-45, "ubRMSD:"+str(round(ubrmse_WinISCCP_00_L0,2)), ha="right", va="center", size=10)
+axes[0,0].text(Scat_max-12, Scat_max-55, "p-value:"+str(round(p_value_WinScan_00_L0,2)), ha="left", va="center", size=10)
 bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
 pts=str(filtered_diff.shape[0])
 axes[0,0].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
@@ -3269,15 +3326,16 @@ axes[1,0].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cma
 axes[1,0].plot(filtered_x_final, filtered_x_final*slope_WinScan_03_L0+intercept_WinScan_03_L0, color='red', linewidth=2)
 axes[1,0].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
 axes[1,0].grid()
-axes[1,0].set_ylabel('ISCCP Skin T (K)')
-axes[1,0].set_xlabel('ISMN 5cm Tsoil (K)', size=8)
+axes[1,0].set_ylabel('ISCCP Skin T (K)', size=10)
+axes[1,0].set_xlabel('ISMN 5cm Tsoil (K)', size=12)
 bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
 axes[1,0].text(Scat_min+2,  Scat_max-10, "03 UTC", ha="left", va="center", size=12, bbox=bbox_props)
 axes[1,0].text(Scat_min-12, Scat_max-5, "RMS :"+str(round(rmse_WinISCCP_03_L0,2)), ha="right", va="center", size=10)
 axes[1,0].text(Scat_min-12, Scat_max-15, "BIAS:"+str(round(temp_bias_WinISCCP_03_L0,2)), ha="right", va="center", size=10)
 axes[1,0].text(Scat_min-12, Scat_max-22, "(ISSCP-ISMN)", ha="right", va="center", size=6)
-axes[1,0].text(Scat_min-12, Scat_max-35, "R2:"+str(round(r_value_WinScan_03_L0,2)), ha="right", va="center", size=10)
+axes[1,0].text(Scat_min-12, Scat_max-35, "R:"+str(round(r_value_WinScan_03_L0,2)), ha="right", va="center", size=10)
 axes[1,0].text(Scat_min-12, Scat_max-45, "ubRMSD:"+str(round(ubrmse_WinISCCP_03_L0,2)), ha="right", va="center", size=10)
+axes[1,0].text(Scat_max-12, Scat_max-55, "p-value:"+str(round(p_value_WinScan_03_L0,2)), ha="left", va="center", size=10)
 bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
 pts=str(filtered_diff.shape[0])
 axes[1,0].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
@@ -3310,15 +3368,16 @@ axes[2,0].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cma
 axes[2,0].plot(filtered_x_final, filtered_x_final*slope_WinScan_06_L0+intercept_WinScan_06_L0, color='red', linewidth=2)
 axes[2,0].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
 axes[2,0].grid()
-axes[2,0].set_ylabel('ISCCP Skin T (K)')
-axes[2,0].set_xlabel('ISMN 5cm Tsoil (K)', size=8)
+axes[2,0].set_ylabel('ISCCP Skin T (K)', size=10)
+axes[2,0].set_xlabel('ISMN 5cm Tsoil (K)', size=12)
 bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
 axes[2,0].text(Scat_min+2,  Scat_max-10, "06 UTC", ha="left", va="center", size=12, bbox=bbox_props)
 axes[2,0].text(Scat_min-12, Scat_max-5, "RMS :"+str(round(rmse_WinISCCP_06_L0,2)), ha="right", va="center", size=10)
 axes[2,0].text(Scat_min-12, Scat_max-15, "BIAS:"+str(round(temp_bias_WinISCCP_06_L0,2)), ha="right", va="center", size=10)
 axes[2,0].text(Scat_min-12, Scat_max-22, "(ISSCP-ISMN)", ha="right", va="center", size=6)
-axes[2,0].text(Scat_min-12, Scat_max-35, "R2:"+str(round(r_value_WinScan_06_L0,2)), ha="right", va="center", size=10)
+axes[2,0].text(Scat_min-12, Scat_max-35, "R:"+str(round(r_value_WinScan_06_L0,2)), ha="right", va="center", size=10)
 axes[2,0].text(Scat_min-12, Scat_max-45, "ubRMSD:"+str(round(ubrmse_WinISCCP_06_L0,2)), ha="right", va="center", size=10)
+axes[2,0].text(Scat_max-12, Scat_max-55, "p-value:"+str(round(p_value_WinScan_06_L0,2)), ha="left", va="center", size=10)
 bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
 pts=str(filtered_diff.shape[0])
 axes[2,0].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
@@ -3351,15 +3410,16 @@ axes[3,0].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cma
 axes[3,0].plot(filtered_x_final, filtered_x_final*slope_WinScan_09_L0+intercept_WinScan_09_L0, color='red', linewidth=2)
 axes[3,0].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
 axes[3,0].grid()
-axes[3,0].set_ylabel('ISCCP Skin T (K)')
-axes[3,0].set_xlabel('ISMN 5cm Tsoil (K)', size=8)
+axes[3,0].set_ylabel('ISCCP Skin T (K)', size=10)
+axes[3,0].set_xlabel('ISMN 5cm Tsoil (K)', size=12)
 bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
 axes[3,0].text(Scat_min+2,  Scat_max-10, "09 UTC", ha="left", va="center", size=12, bbox=bbox_props)
 axes[3,0].text(Scat_min-12, Scat_max-5, "RMS :"+str(round(rmse_WinISCCP_09_L0,2)), ha="right", va="center", size=10)
 axes[3,0].text(Scat_min-12, Scat_max-15, "BIAS:"+str(round(temp_bias_WinISCCP_09_L0,2)), ha="right", va="center", size=10)
 axes[3,0].text(Scat_min-12, Scat_max-22, "(ISSCP-ISMN)", ha="right", va="center", size=6)
-axes[3,0].text(Scat_min-12, Scat_max-35, "R2:"+str(round(r_value_WinScan_09_L0,2)), ha="right", va="center", size=10)
+axes[3,0].text(Scat_min-12, Scat_max-35, "R:"+str(round(r_value_WinScan_09_L0,2)), ha="right", va="center", size=10)
 axes[3,0].text(Scat_min-12, Scat_max-45, "ubRMSD:"+str(round(ubrmse_WinISCCP_09_L0,2)), ha="right", va="center", size=10)
+axes[3,0].text(Scat_max-12, Scat_max-55, "p-value:"+str(round(p_value_WinScan_09_L0,2)), ha="left", va="center", size=10)
 bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
 pts=str(filtered_diff.shape[0])
 axes[3,0].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
@@ -3391,15 +3451,16 @@ axes[0,1].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cma
 axes[0,1].plot(filtered_x_final, filtered_x_final*slope_WinScan_12_L0+intercept_WinScan_12_L0, color='red', linewidth=2)
 axes[0,1].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
 axes[0,1].grid()
-axes[0,1].set_ylabel('ISCCP Skin T (K)')
-axes[0,1].set_xlabel('ISMN 5cm Tsoil (K)', size=8)
+axes[0,1].set_ylabel('ISCCP Skin T (K)', size=10)
+axes[0,1].set_xlabel('ISMN 5cm Tsoil (K)', size=12)
 bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
 axes[0,1].text(Scat_min+2, Scat_max-10, "12 UTC", ha="left", va="center", size=12, bbox=bbox_props)
 axes[0,1].text(Scat_max+3, Scat_max-5, "RMS :"+str(round(rmse_WinISCCP_12_L0,2)), ha="left", va="center", size=10)
 axes[0,1].text(Scat_max+3, Scat_max-15, "BIAS:"+str(round(temp_bias_WinISCCP_12_L0,2)), ha="left", va="center", size=10)
 axes[0,1].text(Scat_max+3, Scat_max-22, "(ISSCP-ISMN)", ha="left", va="center", size=6)
-axes[0,1].text(Scat_max+3, Scat_max-35, "R2:"+str(round(r_value_WinScan_12_L0,2)), ha="left", va="center", size=10)
+axes[0,1].text(Scat_max+3, Scat_max-35, "R:"+str(round(r_value_WinScan_12_L0,2)), ha="left", va="center", size=10)
 axes[0,1].text(Scat_max+3, Scat_max-45, "ubRMSD:"+str(round(ubrmse_WinISCCP_12_L0,2)), ha="left", va="center", size=10)
+axes[0,1].text(Scat_max+3, Scat_max-55, "p-value:"+str(round(p_value_WinScan_12_L0,2)), ha="left", va="center", size=10)
 bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
 pts=str(filtered_diff.shape[0])
 axes[0,1].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
@@ -3431,15 +3492,16 @@ axes[1,1].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cma
 axes[1,1].plot(filtered_x_final, filtered_x_final*slope_WinScan_15_L0+intercept_WinScan_15_L0, color='red', linewidth=2)
 axes[1,1].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
 axes[1,1].grid()
-axes[1,1].set_ylabel('ISCCP Skin T (K)')
-axes[1,1].set_xlabel('ISMN 5cm Tsoil (K)', size=8)
+axes[1,1].set_ylabel('ISCCP Skin T (K)', size=10)
+axes[1,1].set_xlabel('ISMN 5cm Tsoil (K)', size=12)
 bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
 axes[1,1].text(Scat_min+2, Scat_max-10, "15 UTC", ha="left", va="center", size=12, bbox=bbox_props)
 axes[1,1].text(Scat_max+3, Scat_max-5, "RMS :"+str(round(rmse_WinISCCP_15_L0,2)), ha="left", va="center", size=10)
 axes[1,1].text(Scat_max+3, Scat_max-15, "BIAS:"+str(round(temp_bias_WinISCCP_15_L0,2)), ha="left", va="center", size=10)
 axes[1,1].text(Scat_max+3, Scat_max-22, "(ISSCP-ISMN)", ha="left", va="center", size=6)
-axes[1,1].text(Scat_max+3, Scat_max-35, "R2:"+str(round(r_value_WinScan_15_L0,2)), ha="left", va="center", size=10)
+axes[1,1].text(Scat_max+3, Scat_max-35, "R:"+str(round(r_value_WinScan_15_L0,2)), ha="left", va="center", size=10)
 axes[1,1].text(Scat_max+3, Scat_max-45, "ubRMSD:"+str(round(ubrmse_WinISCCP_15_L0,2)), ha="left", va="center", size=10)
+axes[1,1].text(Scat_max+3, Scat_max-55, "p-value:"+str(round(p_value_WinScan_15_L0,2)), ha="left", va="center", size=10)
 bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
 pts=str(filtered_diff.shape[0])
 axes[1,1].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
@@ -3470,15 +3532,16 @@ axes[2,1].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cma
 axes[2,1].plot(filtered_x_final, filtered_x_final*slope_WinScan_18_L0+intercept_WinScan_18_L0, color='red', linewidth=2)
 axes[2,1].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
 axes[2,1].grid()
-axes[2,1].set_ylabel('ISCCP Skin T (K)')
-axes[2,1].set_xlabel('ISMN 5cm Tsoil (K)', size=8)
+axes[2,1].set_ylabel('ISCCP Skin T (K)', size=10)
+axes[2,1].set_xlabel('ISMN 5cm Tsoil (K)', size=12)
 bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
 axes[2,1].text(Scat_min+2, Scat_max-10, "18 UTC", ha="left", va="center", size=12, bbox=bbox_props)
 axes[2,1].text(Scat_max+3, Scat_max-5, "RMS :"+str(round(rmse_WinISCCP_18_L0,2)), ha="left", va="center", size=10)
 axes[2,1].text(Scat_max+3, Scat_max-15, "BIAS:"+str(round(temp_bias_WinISCCP_18_L0,2)), ha="left", va="center", size=10)
 axes[2,1].text(Scat_max+3, Scat_max-22, "(ISSCP-ISMN)", ha="left", va="center", size=6)
-axes[2,1].text(Scat_max+3, Scat_max-35, "R2:"+str(round(r_value_WinScan_18_L0,2)), ha="left", va="center", size=10)
+axes[2,1].text(Scat_max+3, Scat_max-35, "R:"+str(round(r_value_WinScan_18_L0,2)), ha="left", va="center", size=10)
 axes[2,1].text(Scat_max+3, Scat_max-45, "ubRMSD:"+str(round(ubrmse_WinISCCP_18_L0,2)), ha="left", va="center", size=10)
+axes[2,1].text(Scat_max+3, Scat_max-55, "p-value:"+str(round(p_value_WinScan_18_L0,2)), ha="left", va="center", size=10)
 bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
 pts=str(filtered_diff.shape[0])
 axes[2,1].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
@@ -3510,15 +3573,16 @@ axes[3,1].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cma
 axes[3,1].plot(filtered_x_final, filtered_x_final*slope_WinScan_21_L0+intercept_WinScan_21_L0, color='red', linewidth=2)
 axes[3,1].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
 axes[3,1].grid()
-axes[3,1].set_ylabel('ISCCP Skin T (K)')
-axes[3,1].set_xlabel('ISMN 5cm Tsoil (K)', size=8)
+axes[3,1].set_ylabel('ISCCP Skin T (K)', size=10)
+axes[3,1].set_xlabel('ISMN 5cm Tsoil (K)', size=12)
 bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
 axes[3,1].text(Scat_min+2, Scat_max-10, "21 UTC", ha="left", va="center", size=12, bbox=bbox_props)
 axes[3,1].text(Scat_max+3, Scat_max-5, "RMS :"+str(round(rmse_WinISCCP_21_L0,2)), ha="left", va="center", size=10)
 axes[3,1].text(Scat_max+3, Scat_max-15, "BIAS:"+str(round(temp_bias_WinISCCP_21_L0,2)), ha="left", va="center", size=10)
 axes[3,1].text(Scat_max+3, Scat_max-22, "(ISSCP-ISMN)", ha="left", va="center", size=6)
-axes[3,1].text(Scat_max+3, Scat_max-35, "R2:"+str(round(r_value_WinScan_21_L0,2)), ha="left", va="center", size=10)
+axes[3,1].text(Scat_max+3, Scat_max-35, "R:"+str(round(r_value_WinScan_21_L0,2)), ha="left", va="center", size=10)
 axes[3,1].text(Scat_max+3, Scat_max-45, "ubRMSD:"+str(round(ubrmse_WinISCCP_21_L0,2)), ha="left", va="center", size=10)
+axes[3,1].text(Scat_max+3, Scat_max-55, "p-value:"+str(round(p_value_WinScan_21_L0,2)), ha="left", va="center", size=10)
 bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
 pts=str(filtered_diff.shape[0])
 axes[3,1].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
@@ -3560,15 +3624,16 @@ axes[0,0].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cma
 axes[0,0].plot(filtered_x_final, filtered_x_final*slope_SprScan_00_L0+intercept_SprScan_00_L0, color='red', linewidth=2)
 axes[0,0].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
 axes[0,0].grid()
-axes[0,0].set_ylabel('ISCCP Skin T (K)')
-axes[0,0].set_xlabel('ISMN 5cm Tsoil (K)', size=8)
+axes[0,0].set_ylabel('ISCCP Skin T (K)', size=10)
+axes[0,0].set_xlabel('ISMN 5cm Tsoil (K)', size=12)
 bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
 axes[0,0].text(Scat_min+2,  Scat_max-10, "00 UTC", ha="left", va="center", size=12, bbox=bbox_props)
 axes[0,0].text(Scat_min-12, Scat_max-5, "RMS :"+str(round(rmse_SprISCCP_00_L0,2)), ha="right", va="center", size=10)
 axes[0,0].text(Scat_min-12, Scat_max-15, "BIAS:"+str(round(temp_bias_SprISCCP_00_L0,2)), ha="right", va="center", size=10)
 axes[0,0].text(Scat_min-12, Scat_max-22, "(ISSCP-ISMN)", ha="right", va="center", size=6)
-axes[0,0].text(Scat_min-12, Scat_max-35, "R2:"+str(round(r_value_SprScan_00_L0,2)), ha="right", va="center", size=10)
+axes[0,0].text(Scat_min-12, Scat_max-35, "R:"+str(round(r_value_SprScan_00_L0,2)), ha="right", va="center", size=10)
 axes[0,0].text(Scat_min-12, Scat_max-45, "ubRMSD:"+str(round(ubrmse_SprISCCP_00_L0,2)), ha="right", va="center", size=10)
+axes[0,0].text(Scat_max-12, Scat_max-55, "p-value:"+str(round(p_value_SprScan_00_L0,2)), ha="left", va="center", size=10)
 bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
 pts=str(filtered_diff.shape[0])
 axes[0,0].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
@@ -3600,15 +3665,16 @@ axes[1,0].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cma
 axes[1,0].plot(filtered_x_final, filtered_x_final*slope_SprScan_03_L0+intercept_SprScan_03_L0, color='red', linewidth=2)
 axes[1,0].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
 axes[1,0].grid()
-axes[1,0].set_ylabel('ISCCP Skin T (K)')
-axes[1,0].set_xlabel('ISMN 5cm Tsoil (K)', size=8)
+axes[1,0].set_ylabel('ISCCP Skin T (K)', size=10)
+axes[1,0].set_xlabel('ISMN 5cm Tsoil (K)', size=12)
 bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
 axes[1,0].text(Scat_min+2,  Scat_max-10, "03 UTC", ha="left", va="center", size=12, bbox=bbox_props)
 axes[1,0].text(Scat_min-12, Scat_max-5, "RMS :"+str(round(rmse_SprISCCP_03_L0,2)), ha="right", va="center", size=10)
 axes[1,0].text(Scat_min-12, Scat_max-15, "BIAS:"+str(round(temp_bias_SprISCCP_03_L0,2)), ha="right", va="center", size=10)
 axes[1,0].text(Scat_min-12, Scat_max-22, "(ISSCP-ISMN)", ha="right", va="center", size=6)
-axes[1,0].text(Scat_min-12, Scat_max-35, "R2:"+str(round(r_value_SprScan_03_L0,2)), ha="right", va="center", size=10)
+axes[1,0].text(Scat_min-12, Scat_max-35, "R:"+str(round(r_value_SprScan_03_L0,2)), ha="right", va="center", size=10)
 axes[1,0].text(Scat_min-12, Scat_max-45, "ubRMSD:"+str(round(ubrmse_SprISCCP_03_L0,2)), ha="right", va="center", size=10)
+axes[1,0].text(Scat_max-12, Scat_max-55, "p-value:"+str(round(p_value_SprScan_03_L0,2)), ha="left", va="center", size=10)
 bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
 pts=str(filtered_diff.shape[0])
 axes[1,0].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
@@ -3640,15 +3706,16 @@ axes[2,0].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cma
 axes[2,0].plot(filtered_x_final, filtered_x_final*slope_SprScan_06_L0+intercept_SprScan_06_L0, color='red', linewidth=2)
 axes[2,0].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
 axes[2,0].grid()
-axes[2,0].set_ylabel('ISCCP Skin T (K)')
-axes[2,0].set_xlabel('ISMN 5cm Tsoil (K)', size=8)
+axes[2,0].set_ylabel('ISCCP Skin T (K)', size=10)
+axes[2,0].set_xlabel('ISMN 5cm Tsoil (K)', size=12)
 bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
 axes[2,0].text(Scat_min+2,  Scat_max-10, "06 UTC", ha="left", va="center", size=12, bbox=bbox_props)
 axes[2,0].text(Scat_min-12, Scat_max-5, "RMS :"+str(round(rmse_SprISCCP_06_L0,2)), ha="right", va="center", size=10)
 axes[2,0].text(Scat_min-12, Scat_max-15, "BIAS:"+str(round(temp_bias_SprISCCP_06_L0,2)), ha="right", va="center", size=10)
 axes[2,0].text(Scat_min-12, Scat_max-22, "(ISSCP-ISMN)", ha="right", va="center", size=6)
-axes[2,0].text(Scat_min-12, Scat_max-35, "R2:"+str(round(r_value_SprScan_06_L0,2)), ha="right", va="center", size=10)
+axes[2,0].text(Scat_min-12, Scat_max-35, "R:"+str(round(r_value_SprScan_06_L0,2)), ha="right", va="center", size=10)
 axes[2,0].text(Scat_min-12, Scat_max-45, "ubRMSD:"+str(round(ubrmse_SprISCCP_06_L0,2)), ha="right", va="center", size=10)
+axes[2,0].text(Scat_max-12, Scat_max-55, "p-value:"+str(round(p_value_SprScan_06_L0,2)), ha="left", va="center", size=10)
 bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
 pts=str(filtered_diff.shape[0])
 axes[2,0].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
@@ -3680,15 +3747,16 @@ axes[3,0].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cma
 axes[3,0].plot(filtered_x_final, filtered_x_final*slope_SprScan_09_L0+intercept_SprScan_09_L0, color='red', linewidth=2)
 axes[3,0].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
 axes[3,0].grid()
-axes[3,0].set_ylabel('ISCCP Skin T (K)')
-axes[3,0].set_xlabel('ISMN 5cm Tsoil (K)', size=8)
+axes[3,0].set_ylabel('ISCCP Skin T (K)', size=10)
+axes[3,0].set_xlabel('ISMN 5cm Tsoil (K)', size=12)
 bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
 axes[3,0].text(Scat_min+2,  Scat_max-10, "09 UTC", ha="left", va="center", size=12, bbox=bbox_props)
 axes[3,0].text(Scat_min-12, Scat_max-5, "RMS :"+str(round(rmse_SprISCCP_09_L0,2)), ha="right", va="center", size=10)
 axes[3,0].text(Scat_min-12, Scat_max-15, "BIAS:"+str(round(temp_bias_SprISCCP_09_L0,2)), ha="right", va="center", size=10)
 axes[3,0].text(Scat_min-12, Scat_max-22, "(ISSCP-ISMN)", ha="right", va="center", size=6)
-axes[3,0].text(Scat_min-12, Scat_max-35, "R2:"+str(round(r_value_SprScan_09_L0,2)), ha="right", va="center", size=10)
+axes[3,0].text(Scat_min-12, Scat_max-35, "R:"+str(round(r_value_SprScan_09_L0,2)), ha="right", va="center", size=10)
 axes[3,0].text(Scat_min-12, Scat_max-45, "ubRMSD:"+str(round(ubrmse_SprISCCP_09_L0,2)), ha="right", va="center", size=10)
+axes[3,0].text(Scat_max-12, Scat_max-55, "p-value:"+str(round(p_value_SprScan_09_L0,2)), ha="left", va="center", size=10)
 bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
 pts=str(filtered_diff.shape[0])
 axes[3,0].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
@@ -3721,15 +3789,16 @@ axes[0,1].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cma
 axes[0,1].plot(filtered_x_final, filtered_x_final*slope_SprScan_12_L0+intercept_SprScan_12_L0, color='red', linewidth=2)
 axes[0,1].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
 axes[0,1].grid()
-axes[0,1].set_ylabel('ISCCP Skin T (K)')
-axes[0,1].set_xlabel('ISMN 5cm Tsoil (K)', size=8)
+axes[0,1].set_ylabel('ISCCP Skin T (K)', size=10)
+axes[0,1].set_xlabel('ISMN 5cm Tsoil (K)', size=12)
 bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
 axes[0,1].text(Scat_min+2, Scat_max-10, "12 UTC", ha="left", va="center", size=12, bbox=bbox_props)
 axes[0,1].text(Scat_max+3, Scat_max-5, "RMS :"+str(round(rmse_SprISCCP_12_L0,2)), ha="left", va="center", size=10)
 axes[0,1].text(Scat_max+3, Scat_max-15, "BIAS:"+str(round(temp_bias_SprISCCP_12_L0,2)), ha="left", va="center", size=10)
 axes[0,1].text(Scat_max+3, Scat_max-22, "(ISSCP-ISMN)", ha="left", va="center", size=6)
-axes[0,1].text(Scat_max+3, Scat_max-35, "R2:"+str(round(r_value_SprScan_12_L0,2)), ha="left", va="center", size=10)
+axes[0,1].text(Scat_max+3, Scat_max-35, "R:"+str(round(r_value_SprScan_12_L0,2)), ha="left", va="center", size=10)
 axes[0,1].text(Scat_max+3, Scat_max-45, "ubRMSD:"+str(round(ubrmse_SprISCCP_12_L0,2)), ha="left", va="center", size=10)
+axes[0,1].text(Scat_max+3, Scat_max-55, "p-value:"+str(round(p_value_SprScan_12_L0,2)), ha="left", va="center", size=10)
 bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
 pts=str(filtered_diff.shape[0])
 axes[0,1].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
@@ -3761,15 +3830,16 @@ axes[1,1].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cma
 axes[1,1].plot(filtered_x_final, filtered_x_final*slope_SprScan_15_L0+intercept_SprScan_15_L0, color='red', linewidth=2)
 axes[1,1].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
 axes[1,1].grid()
-axes[1,1].set_ylabel('ISCCP Skin T (K)')
-axes[1,1].set_xlabel('ISMN 5cm Tsoil (K)', size=8)
+axes[1,1].set_ylabel('ISCCP Skin T (K)', size=10)
+axes[1,1].set_xlabel('ISMN 5cm Tsoil (K)', size=12)
 bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
 axes[1,1].text(Scat_min+2, Scat_max-10, "15 UTC", ha="left", va="center", size=12, bbox=bbox_props)
 axes[1,1].text(Scat_max+3, Scat_max-5, "RMS :"+str(round(rmse_SprISCCP_15_L0,2)), ha="left", va="center", size=10)
 axes[1,1].text(Scat_max+3, Scat_max-15, "BIAS:"+str(round(temp_bias_SprISCCP_15_L0,2)), ha="left", va="center", size=10)
 axes[1,1].text(Scat_max+3, Scat_max-22, "(ISSCP-ISMN)", ha="left", va="center", size=6)
-axes[1,1].text(Scat_max+3, Scat_max-35, "R2:"+str(round(r_value_SprScan_15_L0,2)), ha="left", va="center", size=10)
+axes[1,1].text(Scat_max+3, Scat_max-35, "R:"+str(round(r_value_SprScan_15_L0,2)), ha="left", va="center", size=10)
 axes[1,1].text(Scat_max+3, Scat_max-45, "ubRMSD:"+str(round(ubrmse_SprISCCP_15_L0,2)), ha="left", va="center", size=10)
+axes[1,1].text(Scat_max+3, Scat_max-55, "p-value:"+str(round(p_value_SprScan_15_L0,2)), ha="left", va="center", size=10)
 bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
 pts=str(filtered_diff.shape[0])
 axes[1,1].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
@@ -3801,15 +3871,16 @@ axes[2,1].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cma
 axes[2,1].plot(filtered_x_final, filtered_x_final*slope_SprScan_18_L0+intercept_SprScan_18_L0, color='red', linewidth=2)
 axes[2,1].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
 axes[2,1].grid()
-axes[2,1].set_ylabel('ISCCP Skin T (K)')
-axes[2,1].set_xlabel('ISMN 5cm Tsoil (K)', size=8)
+axes[2,1].set_ylabel('ISCCP Skin T (K)', size=10)
+axes[2,1].set_xlabel('ISMN 5cm Tsoil (K)', size=12)
 bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
 axes[2,1].text(Scat_min+2, Scat_max-10, "18 UTC", ha="left", va="center", size=12, bbox=bbox_props)
 axes[2,1].text(Scat_max+3, Scat_max-5, "RMS :"+str(round(rmse_SprISCCP_18_L0,2)), ha="left", va="center", size=10)
 axes[2,1].text(Scat_max+3, Scat_max-15, "BIAS:"+str(round(temp_bias_SprISCCP_18_L0,2)), ha="left", va="center", size=10)
 axes[2,1].text(Scat_max+3, Scat_max-22, "(ISSCP-ISMN)", ha="left", va="center", size=6)
-axes[2,1].text(Scat_max+3, Scat_max-35, "R2:"+str(round(r_value_SprScan_18_L0,2)), ha="left", va="center", size=10)
+axes[2,1].text(Scat_max+3, Scat_max-35, "R:"+str(round(r_value_SprScan_18_L0,2)), ha="left", va="center", size=10)
 axes[2,1].text(Scat_max+3, Scat_max-45, "ubRMSD:"+str(round(ubrmse_SprISCCP_18_L0,2)), ha="left", va="center", size=10)
+axes[2,1].text(Scat_max+3, Scat_max-55, "p-value:"+str(round(p_value_SprScan_18_L0,2)), ha="left", va="center", size=10)
 bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
 pts=str(filtered_diff.shape[0])
 axes[2,1].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
@@ -3841,15 +3912,16 @@ axes[3,1].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cma
 axes[3,1].plot(filtered_x_final, filtered_x_final*slope_SprScan_21_L0+intercept_SprScan_21_L0, color='red', linewidth=2)
 axes[3,1].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
 axes[3,1].grid()
-axes[3,1].set_ylabel('ISCCP Skin T (K)')
-axes[3,1].set_xlabel('ISMN 5cm Tsoil (K)', size=8)
+axes[3,1].set_ylabel('ISCCP Skin T (K)', size=10)
+axes[3,1].set_xlabel('ISMN 5cm Tsoil (K)', size=12)
 bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
 axes[3,1].text(Scat_min+2, Scat_max-10, "21 UTC", ha="left", va="center", size=12, bbox=bbox_props)
 axes[3,1].text(Scat_max+3, Scat_max-5, "RMS :"+str(round(rmse_SprISCCP_21_L0,2)), ha="left", va="center", size=10)
 axes[3,1].text(Scat_max+3, Scat_max-15, "BIAS:"+str(round(temp_bias_SprISCCP_21_L0,2)), ha="left", va="center", size=10)
 axes[3,1].text(Scat_max+3, Scat_max-22, "(ISSCP-ISMN)", ha="left", va="center", size=6)
-axes[3,1].text(Scat_max+3, Scat_max-35, "R2:"+str(round(r_value_SprScan_21_L0,2)), ha="left", va="center", size=10)
+axes[3,1].text(Scat_max+3, Scat_max-35, "R:"+str(round(r_value_SprScan_21_L0,2)), ha="left", va="center", size=10)
 axes[3,1].text(Scat_max+3, Scat_max-45, "ubRMSD:"+str(round(ubrmse_SprISCCP_21_L0,2)), ha="left", va="center", size=10)
+axes[3,1].text(Scat_max+3, Scat_max-55, "p-value:"+str(round(p_value_SprScan_21_L0,2)), ha="left", va="center", size=10)
 bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
 pts=str(filtered_diff.shape[0])
 axes[3,1].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
@@ -3893,15 +3965,16 @@ axes[0,0].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cma
 axes[0,0].plot(filtered_x_final, filtered_x_final*slope_SumScan_00_L0+intercept_SumScan_00_L0, color='red', linewidth=2)
 axes[0,0].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
 axes[0,0].grid()
-axes[0,0].set_ylabel('ISCCP Skin T (K)')
-axes[0,0].set_xlabel('ISMN 5cm Tsoil (K)', size=8)
+axes[0,0].set_ylabel('ISCCP Skin T (K)', size=10)
+axes[0,0].set_xlabel('ISMN 5cm Tsoil (K)', size=12)
 bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
 axes[0,0].text(Scat_min+2,  Scat_max-10, "00 UTC", ha="left", va="center", size=12, bbox=bbox_props)
 axes[0,0].text(Scat_min-12, Scat_max-5, "RMS :"+str(round(rmse_SumISCCP_00_L0,2)), ha="right", va="center", size=10)
 axes[0,0].text(Scat_min-12, Scat_max-15, "BIAS:"+str(round(temp_bias_SumISCCP_00_L0,2)), ha="right", va="center", size=10)
 axes[0,0].text(Scat_min-12, Scat_max-22, "(ISSCP-ISMN)", ha="right", va="center", size=6)
-axes[0,0].text(Scat_min-12, Scat_max-35, "R2:"+str(round(r_value_SumScan_00_L0,2)), ha="right", va="center", size=10)
+axes[0,0].text(Scat_min-12, Scat_max-35, "R:"+str(round(r_value_SumScan_00_L0,2)), ha="right", va="center", size=10)
 axes[0,0].text(Scat_min-12, Scat_max-45, "ubRMSD:"+str(round(ubrmse_SumISCCP_00_L0,2)), ha="right", va="center", size=10)
+axes[0,0].text(Scat_max-12, Scat_max-55, "p-value:"+str(round(p_value_SumScan_00_L0,2)), ha="left", va="center", size=10)
 bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
 pts=str(filtered_diff.shape[0])
 axes[0,0].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
@@ -3936,15 +4009,16 @@ axes[1,0].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cma
 axes[1,0].plot(filtered_x_final, filtered_x_final*slope_SumScan_03_L0+intercept_SumScan_03_L0, color='red', linewidth=2)
 axes[1,0].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
 axes[1,0].grid()
-axes[1,0].set_ylabel('ISCCP Skin T (K)')
-axes[1,0].set_xlabel('ISMN 5cm Tsoil (K)', size=8)
+axes[1,0].set_ylabel('ISCCP Skin T (K)', size=10)
+axes[1,0].set_xlabel('ISMN 5cm Tsoil (K)', size=12)
 bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
 axes[1,0].text(Scat_min+2,  Scat_max-10, "03 UTC", ha="left", va="center", size=12, bbox=bbox_props)
 axes[1,0].text(Scat_min-12, Scat_max-5, "RMS :"+str(round(rmse_SumISCCP_03_L0,2)), ha="right", va="center", size=10)
 axes[1,0].text(Scat_min-12, Scat_max-15, "BIAS:"+str(round(temp_bias_SumISCCP_03_L0,2)), ha="right", va="center", size=10)
 axes[1,0].text(Scat_min-12, Scat_max-22, "(ISSCP-ISMN)", ha="right", va="center", size=6)
-axes[1,0].text(Scat_min-12, Scat_max-35, "R2:"+str(round(r_value_SumScan_03_L0,2)), ha="right", va="center", size=10)
+axes[1,0].text(Scat_min-12, Scat_max-35, "R:"+str(round(r_value_SumScan_03_L0,2)), ha="right", va="center", size=10)
 axes[1,0].text(Scat_min-12, Scat_max-45, "ubRMSD:"+str(round(ubrmse_SumISCCP_03_L0,3)), ha="right", va="center", size=10)
+axes[1,0].text(Scat_max-12, Scat_max-55, "p-value:"+str(round(p_value_SumScan_03_L0,2)), ha="left", va="center", size=10)
 bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
 pts=str(filtered_diff.shape[0])
 axes[1,0].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
@@ -3979,15 +4053,16 @@ axes[2,0].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cma
 axes[2,0].plot(filtered_x_final, filtered_x_final*slope_SumScan_06_L0+intercept_SumScan_06_L0, color='red', linewidth=2)
 axes[2,0].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
 axes[2,0].grid()
-axes[2,0].set_ylabel('ISCCP Skin T (K)')
-axes[2,0].set_xlabel('ISMN 5cm Tsoil (K)', size=8)
+axes[2,0].set_ylabel('ISCCP Skin T (K)', size=10)
+axes[2,0].set_xlabel('ISMN 5cm Tsoil (K)', size=12)
 bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
 axes[2,0].text(Scat_min+2,  Scat_max-10, "06 UTC", ha="left", va="center", size=12, bbox=bbox_props)
 axes[2,0].text(Scat_min-12, Scat_max-5, "RMS :"+str(round(rmse_SumISCCP_06_L0,2)), ha="right", va="center", size=10)
 axes[2,0].text(Scat_min-12, Scat_max-15, "BIAS:"+str(round(temp_bias_SumISCCP_06_L0,2)), ha="right", va="center", size=10)
 axes[2,0].text(Scat_min-12, Scat_max-22, "(ISSCP-ISMN)", ha="right", va="center", size=6)
-axes[2,0].text(Scat_min-12, Scat_max-35, "R2:"+str(round(r_value_SumScan_06_L0,2)), ha="right", va="center", size=10)
+axes[2,0].text(Scat_min-12, Scat_max-35, "R:"+str(round(r_value_SumScan_06_L0,2)), ha="right", va="center", size=10)
 axes[2,0].text(Scat_min-12, Scat_max-45, "ubRMSD:"+str(round(ubrmse_SumISCCP_06_L0,2)), ha="right", va="center", size=10)
+axes[2,0].text(Scat_max-12, Scat_max-55, "p-value:"+str(round(p_value_SumScan_06_L0,2)), ha="left", va="center", size=10)
 bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
 pts=str(filtered_diff.shape[0])
 axes[2,0].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
@@ -4022,15 +4097,16 @@ axes[3,0].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cma
 axes[3,0].plot(filtered_x_final, filtered_x_final*slope_SumScan_09_L0+intercept_SumScan_09_L0, color='red', linewidth=2)
 axes[3,0].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
 axes[3,0].grid()
-axes[3,0].set_ylabel('ISCCP Skin T (K)')
-axes[3,0].set_xlabel('ISMN 5cm Tsoil (K)', size=8)
+axes[3,0].set_ylabel('ISCCP Skin T (K)', size=10)
+axes[3,0].set_xlabel('ISMN 5cm Tsoil (K)', size=12)
 bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
 axes[3,0].text(Scat_min+2,  Scat_max-10, "09 UTC", ha="left", va="center", size=12, bbox=bbox_props)
 axes[3,0].text(Scat_min-12, Scat_max-5, "RMS :"+str(round(rmse_SumISCCP_09_L0,2)), ha="right", va="center", size=10)
 axes[3,0].text(Scat_min-12, Scat_max-15, "BIAS:"+str(round(temp_bias_SumISCCP_09_L0,2)), ha="right", va="center", size=10)
 axes[3,0].text(Scat_min-12, Scat_max-22, "(ISSCP-ISMN)", ha="right", va="center", size=6)
-axes[3,0].text(Scat_min-12, Scat_max-35, "R2:"+str(round(r_value_SumScan_09_L0,2)), ha="right", va="center", size=10)
+axes[3,0].text(Scat_min-12, Scat_max-35, "R:"+str(round(r_value_SumScan_09_L0,2)), ha="right", va="center", size=10)
 axes[3,0].text(Scat_min-12, Scat_max-45, "ubRMSD:"+str(round(ubrmse_SumISCCP_09_L0,2)), ha="right", va="center", size=10)
+axes[3,0].text(Scat_max-12, Scat_max-55, "p-value:"+str(round(p_value_SumScan_09_L0,2)), ha="left", va="center", size=10)
 bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
 pts=str(filtered_diff.shape[0])
 axes[3,0].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
@@ -4065,15 +4141,16 @@ axes[0,1].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cma
 axes[0,1].plot(filtered_x_final, filtered_x_final*slope_SumScan_12_L0+intercept_SumScan_12_L0, color='red', linewidth=2)
 axes[0,1].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
 axes[0,1].grid()
-axes[0,1].set_ylabel('ISCCP Skin T (K)')
-axes[0,1].set_xlabel('ISMN 5cm Tsoil (K)', size=8)
+axes[0,1].set_ylabel('ISCCP Skin T (K)', size=10)
+axes[0,1].set_xlabel('ISMN 5cm Tsoil (K)', size=12)
 bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
 axes[0,1].text(Scat_min+2, Scat_max-10, "12 UTC", ha="left", va="center", size=12, bbox=bbox_props)
 axes[0,1].text(Scat_max+3, Scat_max-5, "RMS :"+str(round(rmse_SumISCCP_12_L0,2)), ha="left", va="center", size=10)
 axes[0,1].text(Scat_max+3, Scat_max-15, "BIAS:"+str(round(temp_bias_SumISCCP_12_L0,2)), ha="left", va="center", size=10)
 axes[0,1].text(Scat_max+3, Scat_max-22, "(ISSCP-ISMN)", ha="left", va="center", size=6)
-axes[0,1].text(Scat_max+3, Scat_max-35, "R2:"+str(round(r_value_SumScan_12_L0,2)), ha="left", va="center", size=10)
+axes[0,1].text(Scat_max+3, Scat_max-35, "R:"+str(round(r_value_SumScan_12_L0,2)), ha="left", va="center", size=10)
 axes[0,1].text(Scat_max+3, Scat_max-45, "ubRMSD:"+str(round(ubrmse_SumISCCP_12_L0,2)), ha="left", va="center", size=10)
+axes[0,1].text(Scat_max+3, Scat_max-55, "p-value:"+str(round(p_value_SumScan_12_L0,2)), ha="left", va="center", size=10)
 bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
 pts=str(filtered_diff.shape[0])
 axes[0,1].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
@@ -4108,15 +4185,16 @@ axes[1,1].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cma
 axes[1,1].plot(filtered_x_final, filtered_x_final*slope_SumScan_15_L0+intercept_SumScan_15_L0, color='red', linewidth=2)
 axes[1,1].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
 axes[1,1].grid()
-axes[1,1].set_ylabel('ISCCP Skin T (K)')
-axes[1,1].set_xlabel('ISMN 5cm Tsoil (K)', size=8)
+axes[1,1].set_ylabel('ISCCP Skin T (K)', size=10)
+axes[1,1].set_xlabel('ISMN 5cm Tsoil (K)', size=12)
 bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
 axes[1,1].text(Scat_min+2, Scat_max-10, "15 UTC", ha="left", va="center", size=12, bbox=bbox_props)
 axes[1,1].text(Scat_max+3, Scat_max-5, "RMS :"+str(round(rmse_SumISCCP_15_L0,2)), ha="left", va="center", size=10)
 axes[1,1].text(Scat_max+3, Scat_max-15, "BIAS:"+str(round(temp_bias_SumISCCP_15_L0,2)), ha="left", va="center", size=10)
 axes[1,1].text(Scat_max+3, Scat_max-22, "(ISSCP-ISMN)", ha="left", va="center", size=6)
-axes[1,1].text(Scat_max+3, Scat_max-35, "R2:"+str(round(r_value_SumScan_15_L0,2)), ha="left", va="center", size=10)
+axes[1,1].text(Scat_max+3, Scat_max-35, "R:"+str(round(r_value_SumScan_15_L0,2)), ha="left", va="center", size=10)
 axes[1,1].text(Scat_max+3, Scat_max-45, "ubRMSD:"+str(round(ubrmse_SumISCCP_15_L0,2)), ha="left", va="center", size=10)
+axes[1,1].text(Scat_max+3, Scat_max-55, "p-value:"+str(round(p_value_SumScan_15_L0,2)), ha="left", va="center", size=10)
 bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
 pts=str(filtered_diff.shape[0])
 axes[1,1].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
@@ -4148,15 +4226,16 @@ axes[2,1].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cma
 axes[2,1].plot(filtered_x_final, filtered_x_final*slope_SumScan_18_L0+intercept_SumScan_18_L0, color='red', linewidth=2)
 axes[2,1].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
 axes[2,1].grid()
-axes[2,1].set_ylabel('ISCCP Skin T (K)')
-axes[2,1].set_xlabel('ISMN 5cm Tsoil (K)', size=8)
+axes[2,1].set_ylabel('ISCCP Skin T (K)', size=10)
+axes[2,1].set_xlabel('ISMN 5cm Tsoil (K)', size=12)
 bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
 axes[2,1].text(Scat_min+2, Scat_max-10, "18 UTC", ha="left", va="center", size=12, bbox=bbox_props)
 axes[2,1].text(Scat_max+3, Scat_max-5, "RMS :"+str(round(rmse_SumISCCP_18_L0,2)), ha="left", va="center", size=10)
 axes[2,1].text(Scat_max+3, Scat_max-15, "BIAS:"+str(round(temp_bias_SumISCCP_18_L0,2)), ha="left", va="center", size=10)
 axes[2,1].text(Scat_max+3, Scat_max-22, "(ISSCP-ISMN)", ha="left", va="center", size=6)
-axes[2,1].text(Scat_max+3, Scat_max-35, "R2:"+str(round(r_value_SumScan_18_L0,2)), ha="left", va="center", size=10)
+axes[2,1].text(Scat_max+3, Scat_max-35, "R:"+str(round(r_value_SumScan_18_L0,2)), ha="left", va="center", size=10)
 axes[2,1].text(Scat_max+3, Scat_max-45, "ubRMSD:"+str(round(ubrmse_SumISCCP_18_L0,2)), ha="left", va="center", size=10)
+axes[2,1].text(Scat_max+3, Scat_max-55, "p-value:"+str(round(p_value_SumScan_18_L0,2)), ha="left", va="center", size=10)
 bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
 pts=str(filtered_diff.shape[0])
 axes[2,1].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
@@ -4188,15 +4267,16 @@ axes[3,1].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cma
 axes[3,1].plot(filtered_x_final, filtered_x_final*slope_SumScan_21_L0+intercept_SumScan_21_L0, color='red', linewidth=2)
 axes[3,1].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
 axes[3,1].grid()
-axes[3,1].set_ylabel('ISCCP Skin T (K)')
-axes[3,1].set_xlabel('ISMN 5cm Tsoil (K)', size=8)
+axes[3,1].set_ylabel('ISCCP Skin T (K)', size=10)
+axes[3,1].set_xlabel('ISMN 5cm Tsoil (K)', size=12)
 bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
 axes[3,1].text(Scat_min+2, Scat_max-10, "21 UTC", ha="left", va="center", size=12, bbox=bbox_props)
 axes[3,1].text(Scat_max+3, Scat_max-5, "RMS :"+str(round(rmse_SumISCCP_21_L0,2)), ha="left", va="center", size=10)
 axes[3,1].text(Scat_max+3, Scat_max-15, "BIAS:"+str(round(temp_bias_SumISCCP_21_L0,2)), ha="left", va="center", size=10)
 axes[3,1].text(Scat_max+3, Scat_max-22, "(ISSCP-ISMN)", ha="left", va="center", size=6)
-axes[3,1].text(Scat_max+3, Scat_max-35, "R2:"+str(round(r_value_SumScan_21_L0,2)), ha="left", va="center", size=10)
+axes[3,1].text(Scat_max+3, Scat_max-35, "R:"+str(round(r_value_SumScan_21_L0,2)), ha="left", va="center", size=10)
 axes[3,1].text(Scat_max+3, Scat_max-45, "ubRMSD:"+str(round(ubrmse_SumISCCP_21_L0,2)), ha="left", va="center", size=10)
+axes[3,1].text(Scat_max+3, Scat_max-55, "p-value:"+str(round(p_value_SumScan_21_L0,2)), ha="left", va="center", size=10)
 bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
 pts=str(filtered_diff.shape[0])
 axes[3,1].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
@@ -4236,15 +4316,16 @@ axes[0,0].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cma
 axes[0,0].plot(filtered_x_final, filtered_x_final*slope_FallScan_00_L0+intercept_FallScan_00_L0, color='red', linewidth=2)
 axes[0,0].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
 axes[0,0].grid()
-axes[0,0].set_ylabel('ISCCP Skin T (K)')
-axes[0,0].set_xlabel('ISMN 5cm Tsoil (K)', size=8)
+axes[0,0].set_ylabel('ISCCP Skin T (K)', size=10)
+axes[0,0].set_xlabel('ISMN 5cm Tsoil (K)', size=12)
 bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
 axes[0,0].text(Scat_min+2,  Scat_max-10, "00 UTC", ha="left", va="center", size=12, bbox=bbox_props)
 axes[0,0].text(Scat_min-12, Scat_max-5, "RMS :"+str(round(rmse_FallISCCP_00_L0,2)), ha="right", va="center", size=10)
 axes[0,0].text(Scat_min-12, Scat_max-15, "BIAS:"+str(round(temp_bias_FallISCCP_00_L0,2)), ha="right", va="center", size=10)
 axes[0,0].text(Scat_min-12, Scat_max-22, "(ISSCP-ISMN)", ha="right", va="center", size=6)
-axes[0,0].text(Scat_min-12, Scat_max-35, "R2:"+str(round(r_value_FallScan_00_L0,2)), ha="right", va="center", size=10)
+axes[0,0].text(Scat_min-12, Scat_max-35, "R:"+str(round(r_value_FallScan_00_L0,2)), ha="right", va="center", size=10)
 axes[0,0].text(Scat_min-12, Scat_max-45, "ubRMSD:"+str(round(ubrmse_FallISCCP_00_L0,2)), ha="right", va="center", size=10)
+axes[0,0].text(Scat_max-12, Scat_max-55, "p-value:"+str(round(p_value_FallScan_00_L0,2)), ha="left", va="center", size=10)
 bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
 pts=str(filtered_diff.shape[0])
 axes[0,0].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
@@ -4275,15 +4356,16 @@ axes[1,0].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cma
 axes[1,0].plot(filtered_x_final, filtered_x_final*slope_FallScan_03_L0+intercept_FallScan_03_L0, color='red', linewidth=2)
 axes[1,0].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
 axes[1,0].grid()
-axes[1,0].set_ylabel('ISCCP Skin T (K)')
-axes[1,0].set_xlabel('ISMN 5cm Tsoil (K)', size=8)
+axes[1,0].set_ylabel('ISCCP Skin T (K)', size=10)
+axes[1,0].set_xlabel('ISMN 5cm Tsoil (K)', size=12)
 bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
 axes[1,0].text(Scat_min+2,  Scat_max-10, "03 UTC", ha="left", va="center", size=12, bbox=bbox_props)
 axes[1,0].text(Scat_min-12, Scat_max-5, "RMS :"+str(round(rmse_FallISCCP_03_L0,2)), ha="right", va="center", size=10)
 axes[1,0].text(Scat_min-12, Scat_max-15, "BIAS:"+str(round(temp_bias_FallISCCP_03_L0,2)), ha="right", va="center", size=10)
 axes[1,0].text(Scat_min-12, Scat_max-22, "(ISSCP-ISMN)", ha="right", va="center", size=6)
-axes[1,0].text(Scat_min-12, Scat_max-35, "R2:"+str(round(r_value_FallScan_03_L0,2)), ha="right", va="center", size=10)
+axes[1,0].text(Scat_min-12, Scat_max-35, "R:"+str(round(r_value_FallScan_03_L0,2)), ha="right", va="center", size=10)
 axes[1,0].text(Scat_min-12, Scat_max-45, "ubRMSD:"+str(round(ubrmse_FallISCCP_03_L0,2)), ha="right", va="center", size=10)
+axes[1,0].text(Scat_max-12, Scat_max-55, "p-value:"+str(round(p_value_FallScan_03_L0,2)), ha="left", va="center", size=10)
 bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
 pts=str(filtered_diff.shape[0])
 axes[1,0].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
@@ -4314,15 +4396,16 @@ axes[2,0].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cma
 axes[2,0].plot(filtered_x_final, filtered_x_final*slope_FallScan_06_L0+intercept_FallScan_06_L0, color='red', linewidth=2)
 axes[2,0].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
 axes[2,0].grid()
-axes[2,0].set_ylabel('ISCCP Skin T (K)')
-axes[2,0].set_xlabel('ISMN 5cm Tsoil (K)', size=8)
+axes[2,0].set_ylabel('ISCCP Skin T (K)', size=10)
+axes[2,0].set_xlabel('ISMN 5cm Tsoil (K)', size=12)
 bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
 axes[2,0].text(Scat_min+2,  Scat_max-10, "06 UTC", ha="left", va="center", size=12, bbox=bbox_props)
 axes[2,0].text(Scat_min-12, Scat_max-5, "RMS :"+str(round(rmse_FallISCCP_06_L0,2)), ha="right", va="center", size=10)
 axes[2,0].text(Scat_min-12, Scat_max-15, "BIAS:"+str(round(temp_bias_FallISCCP_06_L0,2)), ha="right", va="center", size=10)
 axes[2,0].text(Scat_min-12, Scat_max-22, "(ISSCP-ISMN)", ha="right", va="center", size=6)
-axes[2,0].text(Scat_min-12, Scat_max-35, "R2:"+str(round(r_value_FallScan_06_L0,2)), ha="right", va="center", size=10)
+axes[2,0].text(Scat_min-12, Scat_max-35, "R:"+str(round(r_value_FallScan_06_L0,2)), ha="right", va="center", size=10)
 axes[2,0].text(Scat_min-12, Scat_max-45, "ubRMSD:"+str(round(ubrmse_FallISCCP_06_L0,2)), ha="right", va="center", size=10)
+axes[2,0].text(Scat_max-12, Scat_max-55, "p-value:"+str(round(p_value_FallScan_06_L0,2)), ha="left", va="center", size=10)
 bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
 pts=str(filtered_diff.shape[0])
 axes[2,0].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
@@ -4353,15 +4436,16 @@ axes[3,0].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cma
 axes[3,0].plot(filtered_x_final, filtered_x_final*slope_FallScan_09_L0+intercept_FallScan_09_L0, color='red', linewidth=2)
 axes[3,0].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
 axes[3,0].grid()
-axes[3,0].set_ylabel('ISCCP Skin T (K)')
-axes[3,0].set_xlabel('ISMN 5cm Tsoil (K)', size=8)
+axes[3,0].set_ylabel('ISCCP Skin T (K)', size=10)
+axes[3,0].set_xlabel('ISMN 5cm Tsoil (K)', size=12)
 bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
 axes[3,0].text(Scat_min+2,  Scat_max-10, "09 UTC", ha="left", va="center", size=12, bbox=bbox_props)
 axes[3,0].text(Scat_min-12, Scat_max-5, "RMS :"+str(round(rmse_FallISCCP_09_L0,2)), ha="right", va="center", size=10)
 axes[3,0].text(Scat_min-12, Scat_max-15, "BIAS:"+str(round(temp_bias_FallISCCP_09_L0,2)), ha="right", va="center", size=10)
 axes[3,0].text(Scat_min-12, Scat_max-22, "(ISSCP-ISMN)", ha="right", va="center", size=6)
-axes[3,0].text(Scat_min-12, Scat_max-35, "R2:"+str(round(r_value_FallScan_09_L0,2)), ha="right", va="center", size=10)
+axes[3,0].text(Scat_min-12, Scat_max-35, "R:"+str(round(r_value_FallScan_09_L0,2)), ha="right", va="center", size=10)
 axes[3,0].text(Scat_min-12, Scat_max-45, "ubRMSD:"+str(round(ubrmse_FallISCCP_09_L0,2)), ha="right", va="center", size=10)
+axes[3,0].text(Scat_max-12, Scat_max-55, "p-value:"+str(round(p_value_FallScan_09_L0,2)), ha="left", va="center", size=10)
 bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
 pts=str(filtered_diff.shape[0])
 axes[3,0].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
@@ -4392,15 +4476,16 @@ axes[0,1].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cma
 axes[0,1].plot(filtered_x_final, filtered_x_final*slope_FallScan_12_L0+intercept_FallScan_12_L0, color='red', linewidth=2)
 axes[0,1].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
 axes[0,1].grid()
-axes[0,1].set_ylabel('ISCCP Skin T (K)')
-axes[0,1].set_xlabel('ISMN 5cm Tsoil (K)', size=8)
+axes[0,1].set_ylabel('ISCCP Skin T (K)', size=1)
+axes[0,1].set_xlabel('ISMN 5cm Tsoil (K)', size=12)
 bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
 axes[0,1].text(Scat_min+2, Scat_max-10, "12 UTC", ha="left", va="center", size=12, bbox=bbox_props)
 axes[0,1].text(Scat_max+3, Scat_max-5, "RMS :"+str(round(rmse_FallISCCP_12_L0,2)), ha="left", va="center", size=10)
 axes[0,1].text(Scat_max+3, Scat_max-15, "BIAS:"+str(round(temp_bias_FallISCCP_12_L0,2)), ha="left", va="center", size=10)
 axes[0,1].text(Scat_max+3, Scat_max-22, "(ISSCP-ISMN)", ha="left", va="center", size=6)
-axes[0,1].text(Scat_max+3, Scat_max-35, "R2:"+str(round(r_value_FallScan_12_L0,2)), ha="left", va="center", size=10)
+axes[0,1].text(Scat_max+3, Scat_max-35, "R:"+str(round(r_value_FallScan_12_L0,2)), ha="left", va="center", size=10)
 axes[0,1].text(Scat_max+3, Scat_max-45, "ubRMSD:"+str(round(ubrmse_FallISCCP_12_L0,2)), ha="left", va="center", size=10)
+axes[0,1].text(Scat_max+3, Scat_max-55, "p-value:"+str(round(p_value_FallScan_12_L0,2)), ha="left", va="center", size=10)
 bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
 pts=str(filtered_diff.shape[0])
 axes[0,1].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
@@ -4434,15 +4519,16 @@ axes[1,1].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cma
 axes[1,1].plot(filtered_x_final, filtered_x_final*slope_FallScan_15_L0+intercept_FallScan_15_L0, color='red', linewidth=2)
 axes[1,1].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
 axes[1,1].grid()
-axes[1,1].set_ylabel('ISCCP Skin T (K)')
-axes[1,1].set_xlabel('ISMN 5cm Tsoil (K)', size=8)
+axes[1,1].set_ylabel('ISCCP Skin T (K)', size=10)
+axes[1,1].set_xlabel('ISMN 5cm Tsoil (K)', size=12)
 bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
 axes[1,1].text(Scat_min+2, Scat_max-10, "15 UTC", ha="left", va="center", size=12, bbox=bbox_props)
 axes[1,1].text(Scat_max+3, Scat_max-5, "RMS :"+str(round(rmse_FallISCCP_15_L0,2)), ha="left", va="center", size=10)
 axes[1,1].text(Scat_max+3, Scat_max-15, "BIAS:"+str(round(temp_bias_FallISCCP_15_L0,2)), ha="left", va="center", size=10)
 axes[1,1].text(Scat_max+3, Scat_max-22, "(ISSCP-ISMN)", ha="left", va="center", size=6)
-axes[1,1].text(Scat_max+3, Scat_max-35, "R2:"+str(round(r_value_FallScan_15_L0,2)), ha="left", va="center", size=10)
+axes[1,1].text(Scat_max+3, Scat_max-35, "R:"+str(round(r_value_FallScan_15_L0,2)), ha="left", va="center", size=10)
 axes[1,1].text(Scat_max+3, Scat_max-45, "ubRMSD:"+str(round(ubrmse_FallISCCP_15_L0,2)), ha="left", va="center", size=10)
+axes[1,1].text(Scat_max+3, Scat_max-55, "p-value:"+str(round(p_value_FallScan_15_L0,2)), ha="left", va="center", size=10)
 bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
 pts=str(filtered_diff.shape[0])
 axes[1,1].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
@@ -4476,14 +4562,15 @@ axes[2,1].plot(filtered_x_final, filtered_x_final*slope_FallScan_18_L0+intercept
 axes[2,1].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
 axes[2,1].grid()
 axes[2,1].set_ylabel('ISCCP Skin T (K)')
-axes[2,1].set_xlabel('ISMN 5cm Tsoil (K)', size=8)
+axes[2,1].set_xlabel('ISMN 5cm Tsoil (K)', size=12)
 bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
 axes[2,1].text(Scat_min+2, Scat_max-10, "18 UTC", ha="left", va="center", size=12, bbox=bbox_props)
 axes[2,1].text(Scat_max+3, Scat_max-5, "RMS :"+str(round(rmse_FallISCCP_18_L0,2)), ha="left", va="center", size=10)
 axes[2,1].text(Scat_max+3, Scat_max-15, "BIAS:"+str(round(temp_bias_FallISCCP_18_L0,2)), ha="left", va="center", size=10)
 axes[2,1].text(Scat_max+3, Scat_max-22, "(ISSCP-ISMN)", ha="left", va="center", size=6)
-axes[2,1].text(Scat_max+3, Scat_max-35, "R2:"+str(round(r_value_FallScan_18_L0,2)), ha="left", va="center", size=10)
+axes[2,1].text(Scat_max+3, Scat_max-35, "R:"+str(round(r_value_FallScan_18_L0,2)), ha="left", va="center", size=10)
 axes[2,1].text(Scat_max+3, Scat_max-45, "ubRMSD:"+str(round(ubrmse_FallISCCP_18_L0,2)), ha="left", va="center", size=10)
+axes[2,1].text(Scat_max+3, Scat_max-55, "p-value:"+str(round(p_value_FallScan_18_L0,2)), ha="left", va="center", size=10)
 bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
 pts=str(filtered_diff.shape[0])
 axes[2,1].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
@@ -4518,15 +4605,16 @@ axes[3,1].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cma
 axes[3,1].plot(filtered_x_final, filtered_x_final*slope_FallScan_21_L0+intercept_FallScan_21_L0, color='red', linewidth=2)
 axes[3,1].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
 axes[3,1].grid()
-axes[3,1].set_ylabel('ISCCP Skin T (K)')
-axes[3,1].set_xlabel('ISMN 5cm Tsoil (K)', size=8)
+axes[3,1].set_ylabel('ISCCP Skin T (K)', size=10)
+axes[3,1].set_xlabel('ISMN 5cm Tsoil (K)', fontsize=12)
 bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
 axes[3,1].text(Scat_min+2, Scat_max-10, "21 UTC", ha="left", va="center", size=12, bbox=bbox_props)
 axes[3,1].text(Scat_max+3, Scat_max-5, "RMS :"+str(round(rmse_FallISCCP_21_L0,2)), ha="left", va="center", size=10)
 axes[3,1].text(Scat_max+3, Scat_max-15, "BIAS:"+str(round(temp_bias_FallISCCP_21_L0,2)), ha="left", va="center", size=10)
 axes[3,1].text(Scat_max+3, Scat_max-22, "(ISSCP-ISMN)", ha="left", va="center", size=6)
-axes[3,1].text(Scat_max+3, Scat_max-35, "R2:"+str(round(r_value_FallScan_21_L0,2)), ha="left", va="center", size=10)
+axes[3,1].text(Scat_max+3, Scat_max-35, "R:"+str(round(r_value_FallScan_21_L0,2)), ha="left", va="center", size=10)
 axes[3,1].text(Scat_max+3, Scat_max-45, "ubRMSD:"+str(round(ubrmse_FallISCCP_21_L0,2)), ha="left", va="center", size=10)
+axes[3,1].text(Scat_max+3, Scat_max-55, "p-value:"+str(round(p_value_FallScan_21_L0,2)), ha="left", va="center", size=10)
 bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
 pts=str(filtered_diff.shape[0])
 axes[3,1].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
@@ -4534,4 +4622,1377 @@ axes[3,1].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va=
 plt.suptitle('ISCCP Skin Temperature vs. ISMN 5cm Soil Temp Fall (SON)\n'+Plot_Labels_full, fontsize=18)
 img_fname_pre=img_out_path
 plt.savefig(img_out_path+'Seasonal_Fall_ISCCPvsISMN5cm_All_Stations'+BGDATE+'-'+EDATE+'_'+Plot_Labels+'.png')
+plt.close(figure)
+
+
+
+########################################################################################################################################################################
+####   Winter  Plots of ISCCP vs. ISMN 10 cm values
+########################################################################################################################################################################
+####   00Z Winter
+########################################################################################################################################################################
+figure, axes=plt.subplots(nrows=4, ncols=2, figsize=(16,8))
+
+filtered_x=ma.masked_outside(Winter_00_SCAN[1,:,:],min_cor,max_cor)
+filtered_y=ma.masked_outside(Winter_00_ISCCP[:,:],min_cor,max_cor)
+mask=ma.masked_invalid(filtered_x.filled(np.nan)*filtered_y.filled(np.nan)).mask
+filtered_x_final=ma.masked_array(Winter_00_SCAN[1,:,:],mask=mask).compressed()
+filtered_y_final=ma.masked_array(Winter_00_ISCCP[:,:],mask=mask).compressed()
+slope_WinScan_00_L0, intercept_WinScan_00_L0, r_value_WinScan_00_L0, p_value_WinScan_00_L0, std_err_WinScan_00_L0 = stats.linregress(filtered_x_final, filtered_y_final)
+print ('this r value for the Winter ISSCP vs. ISMN LY2 is...', r_value_WinScan_00_L0)
+
+#compute the bias
+filtered_diff=filtered_y_final-filtered_x_final
+temp_bias_WinISCCP_00_L0=np.sum(filtered_diff)/filtered_diff.shape[0]
+
+rmse_WinISCCP_00_L0 = np.sqrt(np.nanmean((filtered_y_final-filtered_x_final)**2.))  #math.sqrt(mse_WinISCCP_00_L0)
+ubrmse_WinISCCP_00_L0=np.sqrt(rmse_WinISCCP_00_L0**2-temp_bias_WinISCCP_00_L0**2)
+
+axes[0,0].set_ylim(240, Scat_max)
+axes[0,0].set_xlim(240, Scat_max)
+xy = np.vstack([filtered_x_final, filtered_y_final])
+z = gaussian_kde(xy)(xy)
+axes[0,0].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cmap='turbo')
+
+axes[0,0].plot(filtered_x_final, filtered_x_final*slope_WinScan_00_L0+intercept_WinScan_00_L0, color='red', linewidth=2)
+axes[0,0].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
+axes[0,0].grid()
+axes[0,0].set_ylabel('ISCCP Skin T (K)', size=10)
+axes[0,0].set_xlabel('ISMN 10cm Tsoil (K)', size=12)
+bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
+axes[0,0].text(Scat_min+2,  Scat_max-10, "00 UTC", ha="left", va="center", size=12, bbox=bbox_props)
+axes[0,0].text(Scat_min-12, Scat_max-5, "RMS :"+str(round(rmse_WinISCCP_00_L0,2)), ha="right", va="center", size=10)
+axes[0,0].text(Scat_min-12, Scat_max-15, "BIAS:"+str(round(temp_bias_WinISCCP_00_L0,2)), ha="right", va="center", size=10)
+axes[0,0].text(Scat_min-12, Scat_max-22, "(ISSCP-ISMN)", ha="right", va="center", size=6)
+axes[0,0].text(Scat_min-12, Scat_max-35, "R:"+str(round(r_value_WinScan_00_L0,2)), ha="right", va="center", size=10)
+axes[0,0].text(Scat_min-12, Scat_max-45, "ubRMSD:"+str(round(ubrmse_WinISCCP_00_L0,2)), ha="right", va="center", size=10)
+axes[0,0].text(Scat_max-12, Scat_max-55, "p-value:"+str(round(p_value_WinScan_00_L0,2)), ha="left", va="center", size=10)
+bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
+pts=str(filtered_diff.shape[0])
+axes[0,0].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
+
+########################################################################################################################################################################
+####   03Z Winter
+########################################################################################################################################################################
+
+filtered_x=ma.masked_outside(Winter_03_SCAN[1,:,:],min_cor,max_cor)
+filtered_y=ma.masked_outside(Winter_03_ISCCP[:,:],min_cor,max_cor)
+mask=ma.masked_invalid(filtered_x.filled(np.nan)*filtered_y.filled(np.nan)).mask
+filtered_x_final=ma.masked_array(Winter_03_SCAN[1,:,:],mask=mask).compressed()
+filtered_y_final=ma.masked_array(Winter_03_ISCCP[:,:],mask=mask).compressed()
+slope_WinScan_03_L0, intercept_WinScan_03_L0, r_value_WinScan_03_L0, p_value_WinScan_03_L0, std_err_WinScan_03_L0 = stats.linregress(filtered_x_final, filtered_y_final)
+print ('this r value for the Winter ISSCP vs. ISMN LY2 is...', r_value_WinScan_03_L0)
+
+#compute the bias
+filtered_diff=filtered_y_final-filtered_x_final
+temp_bias_WinISCCP_03_L0=np.sum(filtered_diff)/filtered_diff.shape[0]
+
+rmse_WinISCCP_03_L0 = np.sqrt(np.nanmean((filtered_y_final-filtered_x_final)**2.))   #math.sqrt(mse_WinISCCP_03_L0)
+ubrmse_WinISCCP_03_L0=np.sqrt(rmse_WinISCCP_03_L0**2-temp_bias_WinISCCP_03_L0**2)
+
+axes[1,0].set_ylim(240, Scat_max)
+axes[1,0].set_xlim(240, Scat_max)
+xy = np.vstack([filtered_x_final, filtered_y_final])
+z = gaussian_kde(xy)(xy)
+axes[1,0].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cmap='turbo')
+
+axes[1,0].plot(filtered_x_final, filtered_x_final*slope_WinScan_03_L0+intercept_WinScan_03_L0, color='red', linewidth=2)
+axes[1,0].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
+axes[1,0].grid()
+axes[1,0].set_ylabel('ISCCP Skin T (K)', size=10)
+axes[1,0].set_xlabel('ISMN 10cm Tsoil (K)', size=12)
+bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
+axes[1,0].text(Scat_min+2,  Scat_max-10, "03 UTC", ha="left", va="center", size=12, bbox=bbox_props)
+axes[1,0].text(Scat_min-12, Scat_max-5, "RMS :"+str(round(rmse_WinISCCP_03_L0,2)), ha="right", va="center", size=10)
+axes[1,0].text(Scat_min-12, Scat_max-15, "BIAS:"+str(round(temp_bias_WinISCCP_03_L0,2)), ha="right", va="center", size=10)
+axes[1,0].text(Scat_min-12, Scat_max-22, "(ISSCP-ISMN)", ha="right", va="center", size=6)
+axes[1,0].text(Scat_min-12, Scat_max-35, "R:"+str(round(r_value_WinScan_03_L0,2)), ha="right", va="center", size=10)
+axes[1,0].text(Scat_min-12, Scat_max-45, "ubRMSD:"+str(round(ubrmse_WinISCCP_03_L0,2)), ha="right", va="center", size=10)
+axes[1,0].text(Scat_max-12, Scat_max-55, "p-value:"+str(round(p_value_WinScan_03_L0,2)), ha="left", va="center", size=10)
+bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
+pts=str(filtered_diff.shape[0])
+axes[1,0].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
+
+########################################################################################################################################################################
+####   06Z Winter
+########################################################################################################################################################################
+
+filtered_x=ma.masked_outside(Winter_06_SCAN[1,:,:],min_cor,max_cor)
+filtered_y=ma.masked_outside(Winter_06_ISCCP[:,:],min_cor,max_cor)
+mask=ma.masked_invalid(filtered_x.filled(np.nan)*filtered_y.filled(np.nan)).mask
+filtered_x_final=ma.masked_array(Winter_06_SCAN[1,:,:],mask=mask).compressed()
+filtered_y_final=ma.masked_array(Winter_06_ISCCP[:,:],mask=mask).compressed()
+slope_WinScan_06_L0, intercept_WinScan_06_L0, r_value_WinScan_06_L0, p_value_WinScan_06_L0, std_err_WinScan_06_L0 = stats.linregress(filtered_x_final, filtered_y_final)
+print ('this r value for the Winter ISSCP vs. ISMN LY2 is...', r_value_WinScan_06_L0)
+
+#compute the bias
+filtered_diff=filtered_y_final-filtered_x_final
+temp_bias_WinISCCP_06_L0=np.sum(filtered_diff)/filtered_diff.shape[0]
+
+rmse_WinISCCP_06_L0 = np.sqrt(np.nanmean((filtered_y_final-filtered_x_final)**2.))  #math.sqrt(mse_WinISCCP_06_L0)
+ubrmse_WinISCCP_06_L0=np.sqrt(rmse_WinISCCP_06_L0**2-temp_bias_WinISCCP_06_L0**2)
+
+axes[2,0].set_ylim(240, Scat_max)
+axes[2,0].set_xlim(240, Scat_max)
+xy = np.vstack([filtered_x_final, filtered_y_final])
+z = gaussian_kde(xy)(xy)
+axes[2,0].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cmap='turbo')
+
+axes[2,0].plot(filtered_x_final, filtered_x_final*slope_WinScan_06_L0+intercept_WinScan_06_L0, color='red', linewidth=2)
+axes[2,0].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
+axes[2,0].grid()
+axes[2,0].set_ylabel('ISCCP Skin T (K)', size=10)
+axes[2,0].set_xlabel('ISMN 10cm Tsoil (K)', size=12)
+bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
+axes[2,0].text(Scat_min+2,  Scat_max-10, "06 UTC", ha="left", va="center", size=12, bbox=bbox_props)
+axes[2,0].text(Scat_min-12, Scat_max-5, "RMS :"+str(round(rmse_WinISCCP_06_L0,2)), ha="right", va="center", size=10)
+axes[2,0].text(Scat_min-12, Scat_max-15, "BIAS:"+str(round(temp_bias_WinISCCP_06_L0,2)), ha="right", va="center", size=10)
+axes[2,0].text(Scat_min-12, Scat_max-22, "(ISSCP-ISMN)", ha="right", va="center", size=6)
+axes[2,0].text(Scat_min-12, Scat_max-35, "R:"+str(round(r_value_WinScan_06_L0,2)), ha="right", va="center", size=10)
+axes[2,0].text(Scat_min-12, Scat_max-45, "ubRMSD:"+str(round(ubrmse_WinISCCP_06_L0,2)), ha="right", va="center", size=10)
+axes[2,0].text(Scat_max-12, Scat_max-55, "p-value:"+str(round(p_value_WinScan_06_L0,2)), ha="left", va="center", size=10)
+bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
+pts=str(filtered_diff.shape[0])
+axes[2,0].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
+
+########################################################################################################################################################################
+####   09Z Winter
+########################################################################################################################################################################
+
+filtered_x=ma.masked_outside(Winter_09_SCAN[1,:,:],min_cor,max_cor)
+filtered_y=ma.masked_outside(Winter_09_ISCCP[:,:],min_cor,max_cor)
+mask=ma.masked_invalid(filtered_x.filled(np.nan)*filtered_y.filled(np.nan)).mask
+filtered_x_final=ma.masked_array(Winter_09_SCAN[1,:,:],mask=mask).compressed()
+filtered_y_final=ma.masked_array(Winter_09_ISCCP[:,:],mask=mask).compressed()
+slope_WinScan_09_L0, intercept_WinScan_09_L0, r_value_WinScan_09_L0, p_value_WinScan_09_L0, std_err_WinScan_09_L0 = stats.linregress(filtered_x_final, filtered_y_final)
+print ('this r value for the Winter ISSCP vs. ISMN LY2 is...', r_value_WinScan_09_L0)
+
+#compute the bias
+filtered_diff=filtered_y_final-filtered_x_final
+temp_bias_WinISCCP_09_L0=np.sum(filtered_diff)/filtered_diff.shape[0]
+
+rmse_WinISCCP_09_L0 = np.sqrt(np.nanmean((filtered_y_final-filtered_x_final)**2.))  #math.sqrt(mse_WinISCCP_09_L0)
+ubrmse_WinISCCP_09_L0=np.sqrt(rmse_WinISCCP_09_L0**2-temp_bias_WinISCCP_09_L0**2)
+
+axes[3,0].set_ylim(240, Scat_max)
+axes[3,0].set_xlim(240, Scat_max)
+xy = np.vstack([filtered_x_final, filtered_y_final])
+z = gaussian_kde(xy)(xy)
+axes[3,0].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cmap='turbo')
+
+axes[3,0].plot(filtered_x_final, filtered_x_final*slope_WinScan_09_L0+intercept_WinScan_09_L0, color='red', linewidth=2)
+axes[3,0].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
+axes[3,0].grid()
+axes[3,0].set_ylabel('ISCCP Skin T (K)', size=10)
+axes[3,0].set_xlabel('ISMN 10cm Tsoil (K)', size=12)
+bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
+axes[3,0].text(Scat_min+2,  Scat_max-10, "09 UTC", ha="left", va="center", size=12, bbox=bbox_props)
+axes[3,0].text(Scat_min-12, Scat_max-5, "RMS :"+str(round(rmse_WinISCCP_09_L0,2)), ha="right", va="center", size=10)
+axes[3,0].text(Scat_min-12, Scat_max-15, "BIAS:"+str(round(temp_bias_WinISCCP_09_L0,2)), ha="right", va="center", size=10)
+axes[3,0].text(Scat_min-12, Scat_max-22, "(ISSCP-ISMN)", ha="right", va="center", size=6)
+axes[3,0].text(Scat_min-12, Scat_max-35, "R:"+str(round(r_value_WinScan_09_L0,2)), ha="right", va="center", size=10)
+axes[3,0].text(Scat_min-12, Scat_max-45, "ubRMSD:"+str(round(ubrmse_WinISCCP_09_L0,2)), ha="right", va="center", size=10)
+axes[3,0].text(Scat_max-12, Scat_max-55, "p-value:"+str(round(p_value_WinScan_09_L0,2)), ha="left", va="center", size=10)
+bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
+pts=str(filtered_diff.shape[0])
+axes[3,0].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
+
+########################################################################################################################################################################
+####   12Z Winter
+########################################################################################################################################################################
+
+filtered_x=ma.masked_outside(Winter_12_SCAN[1,:,:],min_cor,max_cor)
+filtered_y=ma.masked_outside(Winter_12_ISCCP[:,:],min_cor,max_cor)
+mask=ma.masked_invalid(filtered_x.filled(np.nan)*filtered_y.filled(np.nan)).mask
+filtered_x_final=ma.masked_array(Winter_12_SCAN[1,:,:],mask=mask).compressed()
+filtered_y_final=ma.masked_array(Winter_12_ISCCP[:,:],mask=mask).compressed()
+slope_WinScan_12_L0, intercept_WinScan_12_L0, r_value_WinScan_12_L0, p_value_WinScan_12_L0, std_err_WinScan_12_L0 = stats.linregress(filtered_x_final, filtered_y_final)
+print ('this r value for the Winter ISSCP vs. ISMN LY2 is...', r_value_WinScan_12_L0)
+
+#compute the bias
+filtered_diff=filtered_y_final-filtered_x_final
+temp_bias_WinISCCP_12_L0=np.sum(filtered_diff)/filtered_diff.shape[0]
+rmse_WinISCCP_12_L0 = np.sqrt(np.nanmean((filtered_y_final-filtered_x_final)**2.))  #math.sqrt(mse_WinISCCP_12_L0)
+ubrmse_WinISCCP_12_L0=np.sqrt(rmse_WinISCCP_12_L0**2-temp_bias_WinISCCP_12_L0**2)
+
+axes[0,1].set_ylim(240, Scat_max)
+axes[0,1].set_xlim(240, Scat_max)
+xy = np.vstack([filtered_x_final, filtered_y_final])
+z = gaussian_kde(xy)(xy)
+axes[0,1].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cmap='turbo')
+
+axes[0,1].plot(filtered_x_final, filtered_x_final*slope_WinScan_12_L0+intercept_WinScan_12_L0, color='red', linewidth=2)
+axes[0,1].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
+axes[0,1].grid()
+axes[0,1].set_ylabel('ISCCP Skin T (K)', size=10)
+axes[0,1].set_xlabel('ISMN 10cm Tsoil (K)', size=12)
+bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
+axes[0,1].text(Scat_min+2, Scat_max-10, "12 UTC", ha="left", va="center", size=12, bbox=bbox_props)
+axes[0,1].text(Scat_max+3, Scat_max-5, "RMS :"+str(round(rmse_WinISCCP_12_L0,2)), ha="left", va="center", size=10)
+axes[0,1].text(Scat_max+3, Scat_max-15, "BIAS:"+str(round(temp_bias_WinISCCP_12_L0,2)), ha="left", va="center", size=10)
+axes[0,1].text(Scat_max+3, Scat_max-22, "(ISSCP-ISMN)", ha="left", va="center", size=6)
+axes[0,1].text(Scat_max+3, Scat_max-35, "R:"+str(round(r_value_WinScan_12_L0,2)), ha="left", va="center", size=10)
+axes[0,1].text(Scat_max+3, Scat_max-45, "ubRMSD:"+str(round(ubrmse_WinISCCP_12_L0,2)), ha="left", va="center", size=10)
+axes[0,1].text(Scat_max+3, Scat_max-55, "p-value:"+str(round(p_value_WinScan_12_L0,2)), ha="left", va="center", size=10)
+bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
+pts=str(filtered_diff.shape[0])
+axes[0,1].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
+
+########################################################################################################################################################################
+####   15Z Winter
+########################################################################################################################################################################
+
+filtered_x=ma.masked_outside(Winter_15_SCAN[1,:,:],min_cor,max_cor)
+filtered_y=ma.masked_outside(Winter_15_ISCCP[:,:],min_cor,max_cor)
+mask=ma.masked_invalid(filtered_x.filled(np.nan)*filtered_y.filled(np.nan)).mask
+filtered_x_final=ma.masked_array(Winter_15_SCAN[1,:,:],mask=mask).compressed()
+filtered_y_final=ma.masked_array(Winter_15_ISCCP[:,:],mask=mask).compressed()
+slope_WinScan_15_L0, intercept_WinScan_15_L0, r_value_WinScan_15_L0, p_value_WinScan_15_L0, std_err_WinScan_15_L0 = stats.linregress(filtered_x_final, filtered_y_final)
+print ('this r value for the Winter ISSCP vs. ISMN LY2 is...', r_value_WinScan_15_L0)
+
+#compute the bias
+filtered_diff=filtered_y_final-filtered_x_final
+temp_bias_WinISCCP_15_L0=np.sum(filtered_diff)/filtered_diff.shape[0]
+rmse_WinISCCP_15_L0 = np.sqrt(np.nanmean((filtered_y_final-filtered_x_final)**2.))  #math.sqrt(mse_WinISCCP_15_L0)
+ubrmse_WinISCCP_15_L0=np.sqrt(rmse_WinISCCP_15_L0**2-temp_bias_WinISCCP_15_L0**2)
+
+axes[1,1].set_ylim(240, Scat_max)
+axes[1,1].set_xlim(240, Scat_max)
+xy = np.vstack([filtered_x_final, filtered_y_final])
+z = gaussian_kde(xy)(xy)
+axes[1,1].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cmap='turbo')
+
+axes[1,1].plot(filtered_x_final, filtered_x_final*slope_WinScan_15_L0+intercept_WinScan_15_L0, color='red', linewidth=2)
+axes[1,1].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
+axes[1,1].grid()
+axes[1,1].set_ylabel('ISCCP Skin T (K)', size=10)
+axes[1,1].set_xlabel('ISMN 10cm Tsoil (K)', size=12)
+bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
+axes[1,1].text(Scat_min+2, Scat_max-10, "15 UTC", ha="left", va="center", size=12, bbox=bbox_props)
+axes[1,1].text(Scat_max+3, Scat_max-5, "RMS :"+str(round(rmse_WinISCCP_15_L0,2)), ha="left", va="center", size=10)
+axes[1,1].text(Scat_max+3, Scat_max-15, "BIAS:"+str(round(temp_bias_WinISCCP_15_L0,2)), ha="left", va="center", size=10)
+axes[1,1].text(Scat_max+3, Scat_max-22, "(ISSCP-ISMN)", ha="left", va="center", size=6)
+axes[1,1].text(Scat_max+3, Scat_max-35, "R:"+str(round(r_value_WinScan_15_L0,2)), ha="left", va="center", size=10)
+axes[1,1].text(Scat_max+3, Scat_max-45, "ubRMSD:"+str(round(ubrmse_WinISCCP_15_L0,2)), ha="left", va="center", size=10)
+axes[1,1].text(Scat_max+3, Scat_max-55, "p-value:"+str(round(p_value_WinScan_15_L0,2)), ha="left", va="center", size=10)
+bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
+pts=str(filtered_diff.shape[0])
+axes[1,1].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
+
+########################################################################################################################################################################
+####   18Z Winter
+########################################################################################################################################################################
+
+filtered_x=ma.masked_outside(Winter_18_SCAN[1,:,:],min_cor,max_cor)
+filtered_y=ma.masked_outside(Winter_18_ISCCP[:,:],min_cor,max_cor)
+mask=ma.masked_invalid(filtered_x.filled(np.nan)*filtered_y.filled(np.nan)).mask
+filtered_x_final=ma.masked_array(Winter_18_SCAN[1,:,:],mask=mask).compressed()
+filtered_y_final=ma.masked_array(Winter_18_ISCCP[:,:],mask=mask).compressed()
+slope_WinScan_18_L0, intercept_WinScan_18_L0, r_value_WinScan_18_L0, p_value_WinScan_18_L0, std_err_WinScan_18_L0 = stats.linregress(filtered_x_final, filtered_y_final)
+print ('this r value for the Winter ISSCP vs. ISMN LY2 is...', r_value_WinScan_18_L0)
+
+#compute the bias
+filtered_diff=filtered_y_final-filtered_x_final
+temp_bias_WinISCCP_18_L0=np.sum(filtered_diff)/filtered_diff.shape[0]
+rmse_WinISCCP_18_L0 = np.sqrt(np.nanmean((filtered_y_final-filtered_x_final)**2.))  #math.sqrt(mse_WinISCCP_18_L0)
+ubrmse_WinISCCP_18_L0=np.sqrt(rmse_WinISCCP_18_L0**2-temp_bias_WinISCCP_18_L0**2)
+
+axes[2,1].set_ylim(240, Scat_max)
+axes[2,1].set_xlim(240, Scat_max)
+xy = np.vstack([filtered_x_final, filtered_y_final])
+z = gaussian_kde(xy)(xy)
+axes[2,1].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cmap='turbo')
+axes[2,1].plot(filtered_x_final, filtered_x_final*slope_WinScan_18_L0+intercept_WinScan_18_L0, color='red', linewidth=2)
+axes[2,1].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
+axes[2,1].grid()
+axes[2,1].set_ylabel('ISCCP Skin T (K)', size=10)
+axes[2,1].set_xlabel('ISMN 10cm Tsoil (K)', size=12)
+bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
+axes[2,1].text(Scat_min+2, Scat_max-10, "18 UTC", ha="left", va="center", size=12, bbox=bbox_props)
+axes[2,1].text(Scat_max+3, Scat_max-5, "RMS :"+str(round(rmse_WinISCCP_18_L0,2)), ha="left", va="center", size=10)
+axes[2,1].text(Scat_max+3, Scat_max-15, "BIAS:"+str(round(temp_bias_WinISCCP_18_L0,2)), ha="left", va="center", size=10)
+axes[2,1].text(Scat_max+3, Scat_max-22, "(ISSCP-ISMN)", ha="left", va="center", size=6)
+axes[2,1].text(Scat_max+3, Scat_max-35, "R:"+str(round(r_value_WinScan_18_L0,2)), ha="left", va="center", size=10)
+axes[2,1].text(Scat_max+3, Scat_max-45, "ubRMSD:"+str(round(ubrmse_WinISCCP_18_L0,2)), ha="left", va="center", size=10)
+axes[2,1].text(Scat_max+3, Scat_max-55, "p-value:"+str(round(p_value_WinScan_18_L0,2)), ha="left", va="center", size=10)
+bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
+pts=str(filtered_diff.shape[0])
+axes[2,1].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
+
+########################################################################################################################################################################
+####   21Z Winter
+########################################################################################################################################################################
+
+filtered_x=ma.masked_outside(Winter_21_SCAN[1,:,:],min_cor,max_cor)
+filtered_y=ma.masked_outside(Winter_21_ISCCP[:,:],min_cor,max_cor)
+mask=ma.masked_invalid(filtered_x.filled(np.nan)*filtered_y.filled(np.nan)).mask
+filtered_x_final=ma.masked_array(Winter_21_SCAN[1,:,:],mask=mask).compressed()
+filtered_y_final=ma.masked_array(Winter_21_ISCCP[:,:],mask=mask).compressed()
+slope_WinScan_21_L0, intercept_WinScan_21_L0, r_value_WinScan_21_L0, p_value_WinScan_21_L0, std_err_WinScan_21_L0 = stats.linregress(filtered_x_final, filtered_y_final)
+print ('this r value for the Winter ISSCP vs. ISMN LY2 is...', r_value_WinScan_21_L0)
+
+#compute the bias
+filtered_diff=filtered_y_final-filtered_x_final
+temp_bias_WinISCCP_21_L0=np.sum(filtered_diff)/filtered_diff.shape[0]
+rmse_WinISCCP_21_L0 = np.sqrt(np.nanmean((filtered_y_final-filtered_x_final)**2.))  #math.sqrt(mse_WinISCCP_21_L0)
+ubrmse_WinISCCP_21_L0=np.sqrt(rmse_WinISCCP_21_L0**2-temp_bias_WinISCCP_21_L0**2)
+
+axes[3,1].set_ylim(240, Scat_max)
+axes[3,1].set_xlim(240, Scat_max)
+xy = np.vstack([filtered_x_final, filtered_y_final])
+z = gaussian_kde(xy)(xy)
+axes[3,1].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cmap='turbo')
+
+axes[3,1].plot(filtered_x_final, filtered_x_final*slope_WinScan_21_L0+intercept_WinScan_21_L0, color='red', linewidth=2)
+axes[3,1].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
+axes[3,1].grid()
+axes[3,1].set_ylabel('ISCCP Skin T (K)', size=10)
+axes[3,1].set_xlabel('ISMN 10cm Tsoil (K)', size=12)
+bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
+axes[3,1].text(Scat_min+2, Scat_max-10, "21 UTC", ha="left", va="center", size=12, bbox=bbox_props)
+axes[3,1].text(Scat_max+3, Scat_max-5, "RMS :"+str(round(rmse_WinISCCP_21_L0,2)), ha="left", va="center", size=10)
+axes[3,1].text(Scat_max+3, Scat_max-15, "BIAS:"+str(round(temp_bias_WinISCCP_21_L0,2)), ha="left", va="center", size=10)
+axes[3,1].text(Scat_max+3, Scat_max-22, "(ISSCP-ISMN)", ha="left", va="center", size=6)
+axes[3,1].text(Scat_max+3, Scat_max-35, "R:"+str(round(r_value_WinScan_21_L0,2)), ha="left", va="center", size=10)
+axes[3,1].text(Scat_max+3, Scat_max-45, "ubRMSD:"+str(round(ubrmse_WinISCCP_21_L0,2)), ha="left", va="center", size=10)
+axes[3,1].text(Scat_max+3, Scat_max-55, "p-value:"+str(round(p_value_WinScan_21_L0,2)), ha="left", va="center", size=10)
+bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
+pts=str(filtered_diff.shape[0])
+axes[3,1].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
+
+plt.suptitle('ISCCP Skin Temperature vs. ISMN 10cm Soil Temp Winter (DJF)\n'+Plot_Labels_full, fontsize=18)
+img_fname_pre=img_out_path
+plt.savefig(img_out_path+'Seasonal_Winter_ISCCPvsISMN10cm_All_Stations'+BGDATE+'-'+EDATE+'_'+Plot_Labels+'.png')
+plt.close(figure)
+
+########################################################################################################################################################################
+####   Spring  Plots of ISCCP vs. ISMN
+########################################################################################################################################################################
+####   00Z Spring
+########################################################################################################################################################################
+
+
+figure, axes=plt.subplots(nrows=4, ncols=2, figsize=(16,8))
+
+filtered_x=ma.masked_outside(Spring_00_SCAN[1,:,:],min_cor,max_cor)
+filtered_y=ma.masked_outside(Spring_00_ISCCP[:,:],min_cor,max_cor)
+mask=ma.masked_invalid(filtered_x.filled(np.nan)*filtered_y.filled(np.nan)).mask
+filtered_x_final=ma.masked_array(Spring_00_SCAN[1,:,:],mask=mask).compressed()
+filtered_y_final=ma.masked_array(Spring_00_ISCCP[:,:],mask=mask).compressed()
+slope_SprScan_00_L0, intercept_SprScan_00_L0, r_value_SprScan_00_L0, p_value_SprScan_00_L0, std_err_SprScan_00_L0 = stats.linregress(filtered_x_final, filtered_y_final)
+print ('this r value for the Spring ISSCP vs. ISMN LY2 is...', r_value_SprScan_00_L0)
+
+#compute the bias
+filtered_diff=filtered_y_final-filtered_x_final
+temp_bias_SprISCCP_00_L0=np.sum(filtered_diff)/filtered_diff.shape[0]
+rmse_SprISCCP_00_L0 = np.sqrt(np.nanmean((filtered_y_final-filtered_x_final)**2.))  #math.sqrt(mse_SprISCCP_00_L0)
+ubrmse_SprISCCP_00_L0=np.sqrt(rmse_SprISCCP_00_L0**2-temp_bias_SprISCCP_00_L0**2)
+
+axes[0,0].set_ylim(240, Scat_max)
+axes[0,0].set_xlim(240, Scat_max)
+xy = np.vstack([filtered_x_final, filtered_y_final])
+z = gaussian_kde(xy)(xy)
+axes[0,0].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cmap='turbo')
+
+axes[0,0].plot(filtered_x_final, filtered_x_final*slope_SprScan_00_L0+intercept_SprScan_00_L0, color='red', linewidth=2)
+axes[0,0].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
+axes[0,0].grid()
+axes[0,0].set_ylabel('ISCCP Skin T (K)', size=10)
+axes[0,0].set_xlabel('ISMN 10cm Tsoil (K)', size=12)
+bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
+axes[0,0].text(Scat_min+2,  Scat_max-10, "00 UTC", ha="left", va="center", size=12, bbox=bbox_props)
+axes[0,0].text(Scat_min-12, Scat_max-5, "RMS :"+str(round(rmse_SprISCCP_00_L0,2)), ha="right", va="center", size=10)
+axes[0,0].text(Scat_min-12, Scat_max-15, "BIAS:"+str(round(temp_bias_SprISCCP_00_L0,2)), ha="right", va="center", size=10)
+axes[0,0].text(Scat_min-12, Scat_max-22, "(ISSCP-ISMN)", ha="right", va="center", size=6)
+axes[0,0].text(Scat_min-12, Scat_max-35, "R:"+str(round(r_value_SprScan_00_L0,2)), ha="right", va="center", size=10)
+axes[0,0].text(Scat_min-12, Scat_max-45, "ubRMSD:"+str(round(ubrmse_SprISCCP_00_L0,2)), ha="right", va="center", size=10)
+axes[0,0].text(Scat_max-12, Scat_max-55, "p-value:"+str(round(p_value_SprScan_00_L0,2)), ha="left", va="center", size=10)
+bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
+pts=str(filtered_diff.shape[0])
+axes[0,0].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
+
+########################################################################################################################################################################
+####   03Z Spring
+########################################################################################################################################################################
+
+filtered_x=ma.masked_outside(Spring_03_SCAN[1,:,:],min_cor,max_cor)
+filtered_y=ma.masked_outside(Spring_03_ISCCP[:,:],min_cor,max_cor)
+mask=ma.masked_invalid(filtered_x.filled(np.nan)*filtered_y.filled(np.nan)).mask
+filtered_x_final=ma.masked_array(Spring_03_SCAN[1,:,:],mask=mask).compressed()
+filtered_y_final=ma.masked_array(Spring_03_ISCCP[:,:],mask=mask).compressed()
+slope_SprScan_03_L0, intercept_SprScan_03_L0, r_value_SprScan_03_L0, p_value_SprScan_03_L0, std_err_SprScan_03_L0 = stats.linregress(filtered_x_final, filtered_y_final)
+print ('this r value for the Spring ISSCP vs. ISMN LY2 is...', r_value_SprScan_03_L0)
+
+#compute the bias
+filtered_diff=filtered_y_final-filtered_x_final
+temp_bias_SprISCCP_03_L0=np.sum(filtered_diff)/filtered_diff.shape[0]
+rmse_SprISCCP_03_L0 = np.sqrt(np.nanmean((filtered_y_final-filtered_x_final)**2.))  #math.sqrt(mse_SprISCCP_03_L0)
+ubrmse_SprISCCP_03_L0=np.sqrt(rmse_SprISCCP_03_L0**2-temp_bias_SprISCCP_03_L0**2)
+
+axes[1,0].set_ylim(240, Scat_max)
+axes[1,0].set_xlim(240, Scat_max)
+xy = np.vstack([filtered_x_final, filtered_y_final])
+z = gaussian_kde(xy)(xy)
+axes[1,0].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cmap='turbo')
+
+axes[1,0].plot(filtered_x_final, filtered_x_final*slope_SprScan_03_L0+intercept_SprScan_03_L0, color='red', linewidth=2)
+axes[1,0].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
+axes[1,0].grid()
+axes[1,0].set_ylabel('ISCCP Skin T (K)', size=10)
+axes[1,0].set_xlabel('ISMN 10cm Tsoil (K)', size=12)
+bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
+axes[1,0].text(Scat_min+2,  Scat_max-10, "03 UTC", ha="left", va="center", size=12, bbox=bbox_props)
+axes[1,0].text(Scat_min-12, Scat_max-5, "RMS :"+str(round(rmse_SprISCCP_03_L0,2)), ha="right", va="center", size=10)
+axes[1,0].text(Scat_min-12, Scat_max-15, "BIAS:"+str(round(temp_bias_SprISCCP_03_L0,2)), ha="right", va="center", size=10)
+axes[1,0].text(Scat_min-12, Scat_max-22, "(ISSCP-ISMN)", ha="right", va="center", size=6)
+axes[1,0].text(Scat_min-12, Scat_max-35, "R:"+str(round(r_value_SprScan_03_L0,2)), ha="right", va="center", size=10)
+axes[1,0].text(Scat_min-12, Scat_max-45, "ubRMSD:"+str(round(ubrmse_SprISCCP_03_L0,2)), ha="right", va="center", size=10)
+axes[1,0].text(Scat_max-12, Scat_max-55, "p-value:"+str(round(p_value_SprScan_03_L0,2)), ha="left", va="center", size=10)
+bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
+pts=str(filtered_diff.shape[0])
+axes[1,0].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
+
+########################################################################################################################################################################
+####   06Z Spring
+########################################################################################################################################################################
+
+filtered_x=ma.masked_outside(Spring_06_SCAN[1,:,:],min_cor,max_cor)
+filtered_y=ma.masked_outside(Spring_06_ISCCP[:,:],min_cor,max_cor)
+mask=ma.masked_invalid(filtered_x.filled(np.nan)*filtered_y.filled(np.nan)).mask
+filtered_x_final=ma.masked_array(Spring_06_SCAN[1,:,:],mask=mask).compressed()
+filtered_y_final=ma.masked_array(Spring_06_ISCCP[:,:],mask=mask).compressed()
+slope_SprScan_06_L0, intercept_SprScan_06_L0, r_value_SprScan_06_L0, p_value_SprScan_06_L0, std_err_SprScan_06_L0 = stats.linregress(filtered_x_final, filtered_y_final)
+print ('this r value for the Spring ISSCP vs. ISMN LY2 is...', r_value_SprScan_06_L0)
+
+#compute the bias
+filtered_diff=filtered_y_final-filtered_x_final
+temp_bias_SprISCCP_06_L0=np.sum(filtered_diff)/filtered_diff.shape[0]
+rmse_SprISCCP_06_L0 = np.sqrt(np.nanmean((filtered_y_final-filtered_x_final)**2.))  #math.sqrt(mse_SprISCCP_06_L0)
+ubrmse_SprISCCP_06_L0=np.sqrt(rmse_SprISCCP_06_L0**2-temp_bias_SprISCCP_06_L0**2)
+
+axes[2,0].set_ylim(240, Scat_max)
+axes[2,0].set_xlim(240, Scat_max)
+xy = np.vstack([filtered_x_final, filtered_y_final])
+z = gaussian_kde(xy)(xy)
+axes[2,0].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cmap='turbo')
+
+axes[2,0].plot(filtered_x_final, filtered_x_final*slope_SprScan_06_L0+intercept_SprScan_06_L0, color='red', linewidth=2)
+axes[2,0].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
+axes[2,0].grid()
+axes[2,0].set_ylabel('ISCCP Skin T (K)', size=10)
+axes[2,0].set_xlabel('ISMN 10cm Tsoil (K)', size=12)
+bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
+axes[2,0].text(Scat_min+2,  Scat_max-10, "06 UTC", ha="left", va="center", size=12, bbox=bbox_props)
+axes[2,0].text(Scat_min-12, Scat_max-5, "RMS :"+str(round(rmse_SprISCCP_06_L0,2)), ha="right", va="center", size=10)
+axes[2,0].text(Scat_min-12, Scat_max-15, "BIAS:"+str(round(temp_bias_SprISCCP_06_L0,2)), ha="right", va="center", size=10)
+axes[2,0].text(Scat_min-12, Scat_max-22, "(ISSCP-ISMN)", ha="right", va="center", size=6)
+axes[2,0].text(Scat_min-12, Scat_max-35, "R:"+str(round(r_value_SprScan_06_L0,2)), ha="right", va="center", size=10)
+axes[2,0].text(Scat_min-12, Scat_max-45, "ubRMSD:"+str(round(ubrmse_SprISCCP_06_L0,2)), ha="right", va="center", size=10)
+axes[2,0].text(Scat_max-12, Scat_max-55, "p-value:"+str(round(p_value_SprScan_06_L0,2)), ha="left", va="center", size=10)
+bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
+pts=str(filtered_diff.shape[0])
+axes[2,0].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
+
+########################################################################################################################################################################
+####   09Z Spring
+########################################################################################################################################################################
+
+filtered_x=ma.masked_outside(Spring_09_SCAN[1,:,:],min_cor,max_cor)
+filtered_y=ma.masked_outside(Spring_09_ISCCP[:,:],min_cor,max_cor)
+mask=ma.masked_invalid(filtered_x.filled(np.nan)*filtered_y.filled(np.nan)).mask
+filtered_x_final=ma.masked_array(Spring_09_SCAN[1,:,:],mask=mask).compressed()
+filtered_y_final=ma.masked_array(Spring_09_ISCCP[:,:],mask=mask).compressed()
+slope_SprScan_09_L0, intercept_SprScan_09_L0, r_value_SprScan_09_L0, p_value_SprScan_09_L0, std_err_SprScan_09_L0 = stats.linregress(filtered_x_final, filtered_y_final)
+print ('this r value for the Spring ISSCP vs. ISMN LY2 is...', r_value_SprScan_09_L0)
+
+#compute the bias
+filtered_diff=filtered_y_final-filtered_x_final
+temp_bias_SprISCCP_09_L0=np.sum(filtered_diff)/filtered_diff.shape[0]
+rmse_SprISCCP_09_L0 = np.sqrt(np.nanmean((filtered_y_final-filtered_x_final)**2.))  #math.sqrt(mse_SprISCCP_09_L0)
+ubrmse_SprISCCP_09_L0=np.sqrt(rmse_SprISCCP_09_L0**2-temp_bias_SprISCCP_09_L0**2)
+
+axes[3,0].set_ylim(240, Scat_max)
+axes[3,0].set_xlim(240, Scat_max)
+xy = np.vstack([filtered_x_final, filtered_y_final])
+z = gaussian_kde(xy)(xy)
+axes[3,0].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cmap='turbo')
+
+axes[3,0].plot(filtered_x_final, filtered_x_final*slope_SprScan_09_L0+intercept_SprScan_09_L0, color='red', linewidth=2)
+axes[3,0].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
+axes[3,0].grid()
+axes[3,0].set_ylabel('ISCCP Skin T (K)', size=10)
+axes[3,0].set_xlabel('ISMN 10cm Tsoil (K)', size=12)
+bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
+axes[3,0].text(Scat_min+2,  Scat_max-10, "09 UTC", ha="left", va="center", size=12, bbox=bbox_props)
+axes[3,0].text(Scat_min-12, Scat_max-5, "RMS :"+str(round(rmse_SprISCCP_09_L0,2)), ha="right", va="center", size=10)
+axes[3,0].text(Scat_min-12, Scat_max-15, "BIAS:"+str(round(temp_bias_SprISCCP_09_L0,2)), ha="right", va="center", size=10)
+axes[3,0].text(Scat_min-12, Scat_max-22, "(ISSCP-ISMN)", ha="right", va="center", size=6)
+axes[3,0].text(Scat_min-12, Scat_max-35, "R:"+str(round(r_value_SprScan_09_L0,2)), ha="right", va="center", size=10)
+axes[3,0].text(Scat_min-12, Scat_max-45, "ubRMSD:"+str(round(ubrmse_SprISCCP_09_L0,2)), ha="right", va="center", size=10)
+axes[3,0].text(Scat_max-12, Scat_max-55, "p-value:"+str(round(p_value_SprScan_09_L0,2)), ha="left", va="center", size=10)
+bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
+pts=str(filtered_diff.shape[0])
+axes[3,0].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
+
+########################################################################################################################################################################
+####   12Z Spring
+########################################################################################################################################################################
+
+
+filtered_x=ma.masked_outside(Spring_12_SCAN[1,:,:],min_cor,max_cor)
+filtered_y=ma.masked_outside(Spring_12_ISCCP[:,:],min_cor,max_cor)
+mask=ma.masked_invalid(filtered_x.filled(np.nan)*filtered_y.filled(np.nan)).mask
+filtered_x_final=ma.masked_array(Spring_12_SCAN[1,:,:],mask=mask).compressed()
+filtered_y_final=ma.masked_array(Spring_12_ISCCP[:,:],mask=mask).compressed()
+slope_SprScan_12_L0, intercept_SprScan_12_L0, r_value_SprScan_12_L0, p_value_SprScan_12_L0, std_err_SprScan_12_L0 = stats.linregress(filtered_x_final, filtered_y_final)
+print ('this r value for the Spring ISSCP vs. ISMN LY2 is...', r_value_SprScan_12_L0)
+
+#compute the bias
+filtered_diff=filtered_y_final-filtered_x_final
+temp_bias_SprISCCP_12_L0=np.sum(filtered_diff)/filtered_diff.shape[0]
+rmse_SprISCCP_12_L0 = np.sqrt(np.nanmean((filtered_y_final-filtered_x_final)**2.))  #math.sqrt(mse_SprISCCP_12_L0)
+ubrmse_SprISCCP_12_L0=np.sqrt(rmse_SprISCCP_12_L0**2-temp_bias_SprISCCP_12_L0**2)
+
+axes[0,1].set_ylim(240, Scat_max)
+axes[0,1].set_xlim(240, Scat_max)
+xy = np.vstack([filtered_x_final, filtered_y_final])
+z = gaussian_kde(xy)(xy)
+axes[0,1].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cmap='turbo')
+
+axes[0,1].plot(filtered_x_final, filtered_x_final*slope_SprScan_12_L0+intercept_SprScan_12_L0, color='red', linewidth=2)
+axes[0,1].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
+axes[0,1].grid()
+axes[0,1].set_ylabel('ISCCP Skin T (K)', size=10)
+axes[0,1].set_xlabel('ISMN 10cm Tsoil (K)', size=12)
+bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
+axes[0,1].text(Scat_min+2, Scat_max-10, "12 UTC", ha="left", va="center", size=12, bbox=bbox_props)
+axes[0,1].text(Scat_max+3, Scat_max-5, "RMS :"+str(round(rmse_SprISCCP_12_L0,2)), ha="left", va="center", size=10)
+axes[0,1].text(Scat_max+3, Scat_max-15, "BIAS:"+str(round(temp_bias_SprISCCP_12_L0,2)), ha="left", va="center", size=10)
+axes[0,1].text(Scat_max+3, Scat_max-22, "(ISSCP-ISMN)", ha="left", va="center", size=6)
+axes[0,1].text(Scat_max+3, Scat_max-35, "R:"+str(round(r_value_SprScan_12_L0,2)), ha="left", va="center", size=10)
+axes[0,1].text(Scat_max+3, Scat_max-45, "ubRMSD:"+str(round(ubrmse_SprISCCP_12_L0,2)), ha="left", va="center", size=10)
+axes[0,1].text(Scat_max+3, Scat_max-55, "p-value:"+str(round(p_value_SprScan_12_L0,2)), ha="left", va="center", size=10)
+bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
+pts=str(filtered_diff.shape[0])
+axes[0,1].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
+
+########################################################################################################################################################################
+####   15Z Spring
+########################################################################################################################################################################
+
+filtered_x=ma.masked_outside(Spring_15_SCAN[1,:,:],min_cor,max_cor)
+filtered_y=ma.masked_outside(Spring_15_ISCCP[:,:],min_cor,max_cor)
+mask=ma.masked_invalid(filtered_x.filled(np.nan)*filtered_y.filled(np.nan)).mask
+filtered_x_final=ma.masked_array(Spring_15_SCAN[1,:,:],mask=mask).compressed()
+filtered_y_final=ma.masked_array(Spring_15_ISCCP[:,:],mask=mask).compressed()
+slope_SprScan_15_L0, intercept_SprScan_15_L0, r_value_SprScan_15_L0, p_value_SprScan_15_L0, std_err_SprScan_15_L0 = stats.linregress(filtered_x_final, filtered_y_final)
+print ('this r value for the Spring ISSCP vs. ISMN LY2 is...', r_value_SprScan_15_L0)
+
+#compute the bias
+filtered_diff=filtered_y_final-filtered_x_final
+temp_bias_SprISCCP_15_L0=np.sum(filtered_diff)/filtered_diff.shape[0]
+rmse_SprISCCP_15_L0 = np.sqrt(np.nanmean((filtered_y_final-filtered_x_final)**2.))  #math.sqrt(mse_SprISCCP_15_L0)
+ubrmse_SprISCCP_15_L0=np.sqrt(rmse_SprISCCP_15_L0**2-temp_bias_SprISCCP_15_L0**2)
+
+axes[1,1].set_ylim(240, Scat_max)
+axes[1,1].set_xlim(240, Scat_max)
+xy = np.vstack([filtered_x_final, filtered_y_final])
+z = gaussian_kde(xy)(xy)
+axes[1,1].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cmap='turbo')
+
+axes[1,1].plot(filtered_x_final, filtered_x_final*slope_SprScan_15_L0+intercept_SprScan_15_L0, color='red', linewidth=2)
+axes[1,1].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
+axes[1,1].grid()
+axes[1,1].set_ylabel('ISCCP Skin T (K)', size=10)
+axes[1,1].set_xlabel('ISMN 10cm Tsoil (K)', size=12)
+bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
+axes[1,1].text(Scat_min+2, Scat_max-10, "15 UTC", ha="left", va="center", size=12, bbox=bbox_props)
+axes[1,1].text(Scat_max+3, Scat_max-5, "RMS :"+str(round(rmse_SprISCCP_15_L0,2)), ha="left", va="center", size=10)
+axes[1,1].text(Scat_max+3, Scat_max-15, "BIAS:"+str(round(temp_bias_SprISCCP_15_L0,2)), ha="left", va="center", size=10)
+axes[1,1].text(Scat_max+3, Scat_max-22, "(ISSCP-ISMN)", ha="left", va="center", size=6)
+axes[1,1].text(Scat_max+3, Scat_max-35, "R:"+str(round(r_value_SprScan_15_L0,2)), ha="left", va="center", size=10)
+axes[1,1].text(Scat_max+3, Scat_max-45, "ubRMSD:"+str(round(ubrmse_SprISCCP_15_L0,2)), ha="left", va="center", size=10)
+axes[1,1].text(Scat_max+3, Scat_max-55, "p-value:"+str(round(p_value_SprScan_15_L0,2)), ha="left", va="center", size=10)
+bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
+pts=str(filtered_diff.shape[0])
+axes[1,1].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
+
+########################################################################################################################################################################
+####   18Z Spring
+########################################################################################################################################################################
+
+filtered_x=ma.masked_outside(Spring_18_SCAN[1,:,:],min_cor,max_cor)
+filtered_y=ma.masked_outside(Spring_18_ISCCP[:,:],min_cor,max_cor)
+mask=ma.masked_invalid(filtered_x.filled(np.nan)*filtered_y.filled(np.nan)).mask
+filtered_x_final=ma.masked_array(Spring_18_SCAN[1,:,:],mask=mask).compressed()
+filtered_y_final=ma.masked_array(Spring_18_ISCCP[:,:],mask=mask).compressed()
+slope_SprScan_18_L0, intercept_SprScan_18_L0, r_value_SprScan_18_L0, p_value_SprScan_18_L0, std_err_SprScan_18_L0 = stats.linregress(filtered_x_final, filtered_y_final)
+print ('this r value for the Spring ISSCP vs. ISMN LY2 is...', r_value_SprScan_18_L0)
+
+#compute the bias
+filtered_diff=filtered_y_final-filtered_x_final
+temp_bias_SprISCCP_18_L0=np.sum(filtered_diff)/filtered_diff.shape[0]
+rmse_SprISCCP_18_L0 = np.sqrt(np.nanmean((filtered_y_final-filtered_x_final)**2.))  # math.sqrt(mse_SprISCCP_18_L0)
+ubrmse_SprISCCP_18_L0=np.sqrt(rmse_SprISCCP_18_L0**2-temp_bias_SprISCCP_18_L0**2)
+
+axes[2,1].set_ylim(240, Scat_max)
+axes[2,1].set_xlim(240, Scat_max)
+xy = np.vstack([filtered_x_final, filtered_y_final])
+z = gaussian_kde(xy)(xy)
+axes[2,1].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cmap='turbo')
+
+axes[2,1].plot(filtered_x_final, filtered_x_final*slope_SprScan_18_L0+intercept_SprScan_18_L0, color='red', linewidth=2)
+axes[2,1].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
+axes[2,1].grid()
+axes[2,1].set_ylabel('ISCCP Skin T (K)', size=10)
+axes[2,1].set_xlabel('ISMN 10cm Tsoil (K)', size=12)
+bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
+axes[2,1].text(Scat_min+2, Scat_max-10, "18 UTC", ha="left", va="center", size=12, bbox=bbox_props)
+axes[2,1].text(Scat_max+3, Scat_max-5, "RMS :"+str(round(rmse_SprISCCP_18_L0,2)), ha="left", va="center", size=10)
+axes[2,1].text(Scat_max+3, Scat_max-15, "BIAS:"+str(round(temp_bias_SprISCCP_18_L0,2)), ha="left", va="center", size=10)
+axes[2,1].text(Scat_max+3, Scat_max-22, "(ISSCP-ISMN)", ha="left", va="center", size=6)
+axes[2,1].text(Scat_max+3, Scat_max-35, "R:"+str(round(r_value_SprScan_18_L0,2)), ha="left", va="center", size=10)
+axes[2,1].text(Scat_max+3, Scat_max-45, "ubRMSD:"+str(round(ubrmse_SprISCCP_18_L0,2)), ha="left", va="center", size=10)
+axes[2,1].text(Scat_max+3, Scat_max-55, "p-value:"+str(round(p_value_SprScan_18_L0,2)), ha="left", va="center", size=10)
+bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
+pts=str(filtered_diff.shape[0])
+axes[2,1].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
+
+########################################################################################################################################################################
+####   21Z Spring
+########################################################################################################################################################################
+
+filtered_x=ma.masked_outside(Spring_21_SCAN[1,:,:],min_cor,max_cor)
+filtered_y=ma.masked_outside(Spring_21_ISCCP[:,:],min_cor,max_cor)
+mask=ma.masked_invalid(filtered_x.filled(np.nan)*filtered_y.filled(np.nan)).mask
+filtered_x_final=ma.masked_array(Spring_21_SCAN[1,:,:],mask=mask).compressed()
+filtered_y_final=ma.masked_array(Spring_21_ISCCP[:,:],mask=mask).compressed()
+slope_SprScan_21_L0, intercept_SprScan_21_L0, r_value_SprScan_21_L0, p_value_SprScan_21_L0, std_err_SprScan_21_L0 = stats.linregress(filtered_x_final, filtered_y_final)
+print ('this r value for the Spring ISSCP vs. ISMN LY2 is...', r_value_SprScan_21_L0)
+
+#compute the bias
+filtered_diff=filtered_y_final-filtered_x_final
+temp_bias_SprISCCP_21_L0=np.sum(filtered_diff)/filtered_diff.shape[0]
+rmse_SprISCCP_21_L0 = np.sqrt(np.nanmean((filtered_y_final-filtered_x_final)**2.))   #math.sqrt(mse_SprISCCP_21_L0)
+ubrmse_SprISCCP_21_L0=np.sqrt(rmse_SprISCCP_21_L0**2-temp_bias_SprISCCP_21_L0**2)
+
+axes[3,1].set_ylim(240, Scat_max)
+axes[3,1].set_xlim(240, Scat_max)
+xy = np.vstack([filtered_x_final, filtered_y_final])
+z = gaussian_kde(xy)(xy)
+axes[3,1].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cmap='turbo')
+
+axes[3,1].plot(filtered_x_final, filtered_x_final*slope_SprScan_21_L0+intercept_SprScan_21_L0, color='red', linewidth=2)
+axes[3,1].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
+axes[3,1].grid()
+axes[3,1].set_ylabel('ISCCP Skin T (K)', size=10)
+axes[3,1].set_xlabel('ISMN 10cm Tsoil (K)', size=12)
+bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
+axes[3,1].text(Scat_min+2, Scat_max-10, "21 UTC", ha="left", va="center", size=12, bbox=bbox_props)
+axes[3,1].text(Scat_max+3, Scat_max-5, "RMS :"+str(round(rmse_SprISCCP_21_L0,2)), ha="left", va="center", size=10)
+axes[3,1].text(Scat_max+3, Scat_max-15, "BIAS:"+str(round(temp_bias_SprISCCP_21_L0,2)), ha="left", va="center", size=10)
+axes[3,1].text(Scat_max+3, Scat_max-22, "(ISSCP-ISMN)", ha="left", va="center", size=6)
+axes[3,1].text(Scat_max+3, Scat_max-35, "R:"+str(round(r_value_SprScan_21_L0,2)), ha="left", va="center", size=10)
+axes[3,1].text(Scat_max+3, Scat_max-45, "ubRMSD:"+str(round(ubrmse_SprISCCP_21_L0,2)), ha="left", va="center", size=10)
+axes[3,1].text(Scat_max+3, Scat_max-55, "p-value:"+str(round(p_value_SprScan_21_L0,2)), ha="left", va="center", size=10)
+bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
+pts=str(filtered_diff.shape[0])
+axes[3,1].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
+
+plt.suptitle('ISCCP Skin Temperature vs. ISMN 5cm Soil Temp Spring (MAM)\n'+Plot_Labels_full, fontsize=18)
+img_fname_pre=img_out_path
+plt.savefig(img_out_path+'Seasonal_Spring_ISCCPvsISMN10cm_All_Stations'+BGDATE+'-'+EDATE+'_'+Plot_Labels+'.png')
+plt.close(figure)
+
+########################################################################################################################################################################
+####   Summer  Plots of ISCCP vs. ISMN
+########################################################################################################################################################################
+####   00Z Summer
+########################################################################################################################################################################
+
+figure, axes=plt.subplots(nrows=4, ncols=2, figsize=(16,8))
+
+filtered_x=ma.masked_outside(Summer_00_SCAN[1,:,:],min_cor,max_cor)
+filtered_y=ma.masked_outside(Summer_00_ISCCP[:,:],min_cor,max_cor)
+mask=ma.masked_invalid(filtered_x.filled(np.nan)*filtered_y.filled(np.nan)).mask
+filtered_x_final=ma.masked_array(Summer_00_SCAN[1,:,:],mask=mask).compressed()
+filtered_y_final=ma.masked_array(Summer_00_ISCCP[:,:],mask=mask).compressed()
+slope_SumScan_00_L0, intercept_SumScan_00_L0, r_value_SumScan_00_L0, p_value_SumScan_00_L0, std_err_SumScan_00_L0 = stats.linregress(filtered_x_final, filtered_y_final)
+print ('this r value for the Summer ISSCP vs. ISMN LY2 is...', r_value_SumScan_00_L0)
+
+#compute the bias
+filtered_diff=filtered_y_final-filtered_x_final
+temp_bias_SumISCCP_00_L0=np.sum(filtered_diff)/filtered_diff.shape[0]
+true_val = filtered_y_final
+predicted_val = intercept_SumScan_00_L0 + slope_SumScan_00_L0 * filtered_x_final
+mse_SumISCCP_00_L0 = mean_squared_error(true_val, predicted_val)
+rmse_SumISCCP_00_L0 = np.sqrt(np.nanmean((filtered_y_final-filtered_x_final)**2.))  #math.sqrt(mse_SumISCCP_00_L0)
+ubrmse_SumISCCP_00_L0=np.sqrt(rmse_SumISCCP_00_L0**2-temp_bias_SumISCCP_00_L0**2)
+
+axes[0,0].set_ylim(240, Scat_max)
+axes[0,0].set_xlim(240, Scat_max)
+xy = np.vstack([filtered_x_final, filtered_y_final])
+z = gaussian_kde(xy)(xy)
+axes[0,0].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cmap='turbo')
+
+axes[0,0].plot(filtered_x_final, filtered_x_final*slope_SumScan_00_L0+intercept_SumScan_00_L0, color='red', linewidth=2)
+axes[0,0].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
+axes[0,0].grid()
+axes[0,0].set_ylabel('ISCCP Skin T (K)', size=10)
+axes[0,0].set_xlabel('ISMN 10cm Tsoil (K)', size=12)
+bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
+axes[0,0].text(Scat_min+2,  Scat_max-10, "00 UTC", ha="left", va="center", size=12, bbox=bbox_props)
+axes[0,0].text(Scat_min-12, Scat_max-5, "RMS :"+str(round(rmse_SumISCCP_00_L0,2)), ha="right", va="center", size=10)
+axes[0,0].text(Scat_min-12, Scat_max-15, "BIAS:"+str(round(temp_bias_SumISCCP_00_L0,2)), ha="right", va="center", size=10)
+axes[0,0].text(Scat_min-12, Scat_max-22, "(ISSCP-ISMN)", ha="right", va="center", size=6)
+axes[0,0].text(Scat_min-12, Scat_max-35, "R:"+str(round(r_value_SumScan_00_L0,2)), ha="right", va="center", size=10)
+axes[0,0].text(Scat_min-12, Scat_max-45, "ubRMSD:"+str(round(ubrmse_SumISCCP_00_L0,2)), ha="right", va="center", size=10)
+axes[0,0].text(Scat_max-12, Scat_max-55, "p-value:"+str(round(p_value_SumScan_00_L0,2)), ha="left", va="center", size=10)
+bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
+pts=str(filtered_diff.shape[0])
+axes[0,0].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
+
+########################################################################################################################################################################
+####   03Z Summer
+########################################################################################################################################################################
+
+filtered_x=ma.masked_outside(Summer_03_SCAN[1,:,:],min_cor,max_cor)
+filtered_y=ma.masked_outside(Summer_03_ISCCP[:,:],min_cor,max_cor)
+mask=ma.masked_invalid(filtered_x.filled(np.nan)*filtered_y.filled(np.nan)).mask
+filtered_x_final=ma.masked_array(Summer_03_SCAN[1,:,:],mask=mask).compressed()
+filtered_y_final=ma.masked_array(Summer_03_ISCCP[:,:],mask=mask).compressed()
+slope_SumScan_03_L0, intercept_SumScan_03_L0, r_value_SumScan_03_L0, p_value_SumScan_03_L0, std_err_SumScan_03_L0 = stats.linregress(filtered_x_final, filtered_y_final)
+print ('this r value for the Summer ISSCP vs. ISMN LY2 is...', r_value_SumScan_03_L0)
+
+#compute the bias
+filtered_diff=filtered_y_final-filtered_x_final
+temp_bias_SumISCCP_03_L0=np.sum(filtered_diff)/filtered_diff.shape[0]
+true_val = filtered_y_final
+predicted_val = intercept_SumScan_03_L0 + slope_SumScan_03_L0 * filtered_x_final
+mse_SumISCCP_03_L0 = mean_squared_error(true_val, predicted_val)
+rmse_SumISCCP_03_L0 = np.sqrt(np.nanmean((filtered_y_final-filtered_x_final)**2.))  #math.sqrt(mse_SumISCCP_03_L0)
+ubrmse_SumISCCP_03_L0=np.sqrt(rmse_SumISCCP_03_L0**2-temp_bias_SumISCCP_03_L0**2)
+
+axes[1,0].set_ylim(240, Scat_max)
+axes[1,0].set_xlim(240, Scat_max)
+xy = np.vstack([filtered_x_final, filtered_y_final])
+z = gaussian_kde(xy)(xy)
+axes[1,0].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cmap='turbo')
+
+axes[1,0].plot(filtered_x_final, filtered_x_final*slope_SumScan_03_L0+intercept_SumScan_03_L0, color='red', linewidth=2)
+axes[1,0].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
+axes[1,0].grid()
+axes[1,0].set_ylabel('ISCCP Skin T (K)', size=10)
+axes[1,0].set_xlabel('ISMN 10cm Tsoil (K)', size=12)
+bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
+axes[1,0].text(Scat_min+2,  Scat_max-10, "03 UTC", ha="left", va="center", size=12, bbox=bbox_props)
+axes[1,0].text(Scat_min-12, Scat_max-5, "RMS :"+str(round(rmse_SumISCCP_03_L0,2)), ha="right", va="center", size=10)
+axes[1,0].text(Scat_min-12, Scat_max-15, "BIAS:"+str(round(temp_bias_SumISCCP_03_L0,2)), ha="right", va="center", size=10)
+axes[1,0].text(Scat_min-12, Scat_max-22, "(ISSCP-ISMN)", ha="right", va="center", size=6)
+axes[1,0].text(Scat_min-12, Scat_max-35, "R:"+str(round(r_value_SumScan_03_L0,2)), ha="right", va="center", size=10)
+axes[1,0].text(Scat_min-12, Scat_max-45, "ubRMSD:"+str(round(ubrmse_SumISCCP_03_L0,3)), ha="right", va="center", size=10)
+axes[1,0].text(Scat_max-12, Scat_max-55, "p-value:"+str(round(p_value_SumScan_03_L0,2)), ha="left", va="center", size=10)
+bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
+pts=str(filtered_diff.shape[0])
+axes[1,0].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
+
+########################################################################################################################################################################
+####   06Z Summer
+########################################################################################################################################################################
+
+filtered_x=ma.masked_outside(Summer_06_SCAN[1,:,:],min_cor,max_cor)
+filtered_y=ma.masked_outside(Summer_06_ISCCP[:,:],min_cor,max_cor)
+mask=ma.masked_invalid(filtered_x.filled(np.nan)*filtered_y.filled(np.nan)).mask
+filtered_x_final=ma.masked_array(Summer_06_SCAN[1,:,:],mask=mask).compressed()
+filtered_y_final=ma.masked_array(Summer_06_ISCCP[:,:],mask=mask).compressed()
+slope_SumScan_06_L0, intercept_SumScan_06_L0, r_value_SumScan_06_L0, p_value_SumScan_06_L0, std_err_SumScan_06_L0 = stats.linregress(filtered_x_final, filtered_y_final)
+print ('this r value for the Summer ISSCP vs. ISMN LY2 is...', r_value_SumScan_06_L0)
+
+#compute the bias
+filtered_diff=filtered_y_final-filtered_x_final
+temp_bias_SumISCCP_06_L0=np.sum(filtered_diff)/filtered_diff.shape[0]
+true_val = filtered_y_final
+predicted_val = intercept_SumScan_06_L0 + slope_SumScan_06_L0 * filtered_x_final
+mse_SumISCCP_06_L0 = mean_squared_error(true_val, predicted_val)
+rmse_SumISCCP_06_L0 = np.sqrt(np.nanmean((filtered_y_final-filtered_x_final)**2.))  #math.sqrt(mse_SumISCCP_06_L0)
+ubrmse_SumISCCP_06_L0=np.sqrt(rmse_SumISCCP_06_L0**2-temp_bias_SumISCCP_06_L0**2)
+
+axes[2,0].set_ylim(240, Scat_max)
+axes[2,0].set_xlim(240, Scat_max)
+xy = np.vstack([filtered_x_final, filtered_y_final])
+z = gaussian_kde(xy)(xy)
+axes[2,0].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cmap='turbo')
+
+axes[2,0].plot(filtered_x_final, filtered_x_final*slope_SumScan_06_L0+intercept_SumScan_06_L0, color='red', linewidth=2)
+axes[2,0].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
+axes[2,0].grid()
+axes[2,0].set_ylabel('ISCCP Skin T (K)', size=10)
+axes[2,0].set_xlabel('ISMN 10cm Tsoil (K)', size=12)
+bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
+axes[2,0].text(Scat_min+2,  Scat_max-10, "06 UTC", ha="left", va="center", size=12, bbox=bbox_props)
+axes[2,0].text(Scat_min-12, Scat_max-5, "RMS :"+str(round(rmse_SumISCCP_06_L0,2)), ha="right", va="center", size=10)
+axes[2,0].text(Scat_min-12, Scat_max-15, "BIAS:"+str(round(temp_bias_SumISCCP_06_L0,2)), ha="right", va="center", size=10)
+axes[2,0].text(Scat_min-12, Scat_max-22, "(ISSCP-ISMN)", ha="right", va="center", size=6)
+axes[2,0].text(Scat_min-12, Scat_max-35, "R:"+str(round(r_value_SumScan_06_L0,2)), ha="right", va="center", size=10)
+axes[2,0].text(Scat_min-12, Scat_max-45, "ubRMSD:"+str(round(ubrmse_SumISCCP_06_L0,2)), ha="right", va="center", size=10)
+axes[2,0].text(Scat_max-12, Scat_max-55, "p-value:"+str(round(p_value_SumScan_06_L0,2)), ha="left", va="center", size=10)
+bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
+pts=str(filtered_diff.shape[0])
+axes[2,0].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
+
+########################################################################################################################################################################
+####   09Z Summer
+########################################################################################################################################################################
+
+filtered_x=ma.masked_outside(Summer_09_SCAN[1,:,:],min_cor,max_cor)
+filtered_y=ma.masked_outside(Summer_09_ISCCP[:,:],min_cor,max_cor)
+mask=ma.masked_invalid(filtered_x.filled(np.nan)*filtered_y.filled(np.nan)).mask
+filtered_x_final=ma.masked_array(Summer_09_SCAN[1,:,:],mask=mask).compressed()
+filtered_y_final=ma.masked_array(Summer_09_ISCCP[:,:],mask=mask).compressed()
+slope_SumScan_09_L0, intercept_SumScan_09_L0, r_value_SumScan_09_L0, p_value_SumScan_09_L0, std_err_SumScan_09_L0 = stats.linregress(filtered_x_final, filtered_y_final)
+print ('this r value for the Summer ISSCP vs. ISMN LY2 is...', r_value_SumScan_09_L0)
+
+#compute the bias
+filtered_diff=filtered_y_final-filtered_x_final
+temp_bias_SumISCCP_09_L0=np.sum(filtered_diff)/filtered_diff.shape[0]
+true_val = filtered_y_final
+predicted_val = intercept_SumScan_09_L0 + slope_SumScan_09_L0 * filtered_x_final
+mse_SumISCCP_09_L0 = mean_squared_error(true_val, predicted_val)
+rmse_SumISCCP_09_L0 = np.sqrt(np.nanmean((filtered_y_final-filtered_x_final)**2.))  # math.sqrt(mse_SumISCCP_09_L0)
+ubrmse_SumISCCP_09_L0=np.sqrt(rmse_SumISCCP_09_L0**2-temp_bias_SumISCCP_09_L0**2)
+
+axes[3,0].set_ylim(240, Scat_max)
+axes[3,0].set_xlim(240, Scat_max)
+xy = np.vstack([filtered_x_final, filtered_y_final])
+z = gaussian_kde(xy)(xy)
+axes[3,0].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cmap='turbo')
+
+axes[3,0].plot(filtered_x_final, filtered_x_final*slope_SumScan_09_L0+intercept_SumScan_09_L0, color='red', linewidth=2)
+axes[3,0].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
+axes[3,0].grid()
+axes[3,0].set_ylabel('ISCCP Skin T (K)', size=10)
+axes[3,0].set_xlabel('ISMN 10cm Tsoil (K)', size=12)
+bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
+axes[3,0].text(Scat_min+2,  Scat_max-10, "09 UTC", ha="left", va="center", size=12, bbox=bbox_props)
+axes[3,0].text(Scat_min-12, Scat_max-5, "RMS :"+str(round(rmse_SumISCCP_09_L0,2)), ha="right", va="center", size=10)
+axes[3,0].text(Scat_min-12, Scat_max-15, "BIAS:"+str(round(temp_bias_SumISCCP_09_L0,2)), ha="right", va="center", size=10)
+axes[3,0].text(Scat_min-12, Scat_max-22, "(ISSCP-ISMN)", ha="right", va="center", size=6)
+axes[3,0].text(Scat_min-12, Scat_max-35, "R:"+str(round(r_value_SumScan_09_L0,2)), ha="right", va="center", size=10)
+axes[3,0].text(Scat_min-12, Scat_max-45, "ubRMSD:"+str(round(ubrmse_SumISCCP_09_L0,2)), ha="right", va="center", size=10)
+axes[3,0].text(Scat_max-12, Scat_max-55, "p-value:"+str(round(p_value_SumScan_09_L0,2)), ha="left", va="center", size=10)
+bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
+pts=str(filtered_diff.shape[0])
+axes[3,0].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
+
+########################################################################################################################################################################
+####   12Z Summer
+########################################################################################################################################################################
+
+filtered_x=ma.masked_outside(Summer_12_SCAN[1,:,:],min_cor,max_cor)
+filtered_y=ma.masked_outside(Summer_12_ISCCP[:,:],min_cor,max_cor)
+mask=ma.masked_invalid(filtered_x.filled(np.nan)*filtered_y.filled(np.nan)).mask
+filtered_x_final=ma.masked_array(Summer_12_SCAN[1,:,:],mask=mask).compressed()
+filtered_y_final=ma.masked_array(Summer_12_ISCCP[:,:],mask=mask).compressed()
+slope_SumScan_12_L0, intercept_SumScan_12_L0, r_value_SumScan_12_L0, p_value_SumScan_12_L0, std_err_SumScan_12_L0 = stats.linregress(filtered_x_final, filtered_y_final)
+print ('this r value for the Summer ISSCP vs. ISMN LY2 is...', r_value_SumScan_12_L0)
+
+#compute the bias
+filtered_diff=filtered_y_final-filtered_x_final
+temp_bias_SumISCCP_12_L0=np.sum(filtered_diff)/filtered_diff.shape[0]
+true_val = filtered_y_final
+predicted_val = intercept_SumScan_12_L0 + slope_SumScan_12_L0 * filtered_x_final
+mse_SumISCCP_12_L0 = mean_squared_error(true_val, predicted_val)
+rmse_SumISCCP_12_L0 = np.sqrt(np.nanmean((filtered_y_final-filtered_x_final)**2.))  # math.sqrt(mse_SumISCCP_12_L0)
+ubrmse_SumISCCP_12_L0=np.sqrt(rmse_SumISCCP_12_L0**2-temp_bias_SumISCCP_12_L0**2)
+
+axes[0,1].set_ylim(240, Scat_max)
+axes[0,1].set_xlim(240, Scat_max)
+xy = np.vstack([filtered_x_final, filtered_y_final])
+z = gaussian_kde(xy)(xy)
+axes[0,1].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cmap='turbo')
+
+axes[0,1].plot(filtered_x_final, filtered_x_final*slope_SumScan_12_L0+intercept_SumScan_12_L0, color='red', linewidth=2)
+axes[0,1].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
+axes[0,1].grid()
+axes[0,1].set_ylabel('ISCCP Skin T (K)', size=10)
+axes[0,1].set_xlabel('ISMN 10cm Tsoil (K)', size=12)
+bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
+axes[0,1].text(Scat_min+2, Scat_max-10, "12 UTC", ha="left", va="center", size=12, bbox=bbox_props)
+axes[0,1].text(Scat_max+3, Scat_max-5, "RMS :"+str(round(rmse_SumISCCP_12_L0,2)), ha="left", va="center", size=10)
+axes[0,1].text(Scat_max+3, Scat_max-15, "BIAS:"+str(round(temp_bias_SumISCCP_12_L0,2)), ha="left", va="center", size=10)
+axes[0,1].text(Scat_max+3, Scat_max-22, "(ISSCP-ISMN)", ha="left", va="center", size=6)
+axes[0,1].text(Scat_max+3, Scat_max-35, "R:"+str(round(r_value_SumScan_12_L0,2)), ha="left", va="center", size=10)
+axes[0,1].text(Scat_max+3, Scat_max-45, "ubRMSD:"+str(round(ubrmse_SumISCCP_12_L0,2)), ha="left", va="center", size=10)
+axes[0,1].text(Scat_max+3, Scat_max-55, "p-value:"+str(round(p_value_SumScan_12_L0,2)), ha="left", va="center", size=10)
+bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
+pts=str(filtered_diff.shape[0])
+axes[0,1].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
+
+########################################################################################################################################################################
+####   15Z Summer
+########################################################################################################################################################################
+
+filtered_x=ma.masked_outside(Summer_15_SCAN[1,:,:],min_cor,max_cor)
+filtered_y=ma.masked_outside(Summer_15_ISCCP[:,:],min_cor,max_cor)
+mask=ma.masked_invalid(filtered_x.filled(np.nan)*filtered_y.filled(np.nan)).mask
+filtered_x_final=ma.masked_array(Summer_15_SCAN[1,:,:],mask=mask).compressed()
+filtered_y_final=ma.masked_array(Summer_15_ISCCP[:,:],mask=mask).compressed()
+slope_SumScan_15_L0, intercept_SumScan_15_L0, r_value_SumScan_15_L0, p_value_SumScan_15_L0, std_err_SumScan_15_L0 = stats.linregress(filtered_x_final, filtered_y_final)
+print ('this r value for the Summer ISSCP vs. ISMN LY2 is...', r_value_SumScan_15_L0)
+
+#compute the bias
+filtered_diff=filtered_y_final-filtered_x_final
+temp_bias_SumISCCP_15_L0=np.sum(filtered_diff)/filtered_diff.shape[0]
+true_val = filtered_y_final
+predicted_val = intercept_SumScan_15_L0 + slope_SumScan_15_L0 * filtered_x_final
+mse_SumISCCP_15_L0 = mean_squared_error(true_val, predicted_val)
+rmse_SumISCCP_15_L0 = np.sqrt(np.nanmean((filtered_y_final-filtered_x_final)**2.))  # math.sqrt(mse_SumISCCP_15_L0)
+ubrmse_SumISCCP_15_L0=np.sqrt(rmse_SumISCCP_15_L0**2-temp_bias_SumISCCP_15_L0**2)
+
+axes[1,1].set_ylim(240, Scat_max)
+axes[1,1].set_xlim(240, Scat_max)
+xy = np.vstack([filtered_x_final, filtered_y_final])
+z = gaussian_kde(xy)(xy)
+axes[1,1].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cmap='turbo')
+
+axes[1,1].plot(filtered_x_final, filtered_x_final*slope_SumScan_15_L0+intercept_SumScan_15_L0, color='red', linewidth=2)
+axes[1,1].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
+axes[1,1].grid()
+axes[1,1].set_ylabel('ISCCP Skin T (K)', size=10)
+axes[1,1].set_xlabel('ISMN 10cm Tsoil (K)', size=12)
+bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
+axes[1,1].text(Scat_min+2, Scat_max-10, "15 UTC", ha="left", va="center", size=12, bbox=bbox_props)
+axes[1,1].text(Scat_max+3, Scat_max-5, "RMS :"+str(round(rmse_SumISCCP_15_L0,2)), ha="left", va="center", size=10)
+axes[1,1].text(Scat_max+3, Scat_max-15, "BIAS:"+str(round(temp_bias_SumISCCP_15_L0,2)), ha="left", va="center", size=10)
+axes[1,1].text(Scat_max+3, Scat_max-22, "(ISSCP-ISMN)", ha="left", va="center", size=6)
+axes[1,1].text(Scat_max+3, Scat_max-35, "R:"+str(round(r_value_SumScan_15_L0,2)), ha="left", va="center", size=10)
+axes[1,1].text(Scat_max+3, Scat_max-45, "ubRMSD:"+str(round(ubrmse_SumISCCP_15_L0,2)), ha="left", va="center", size=10)
+axes[1,1].text(Scat_max+3, Scat_max-55, "p-value:"+str(round(p_value_SumScan_15_L0,2)), ha="left", va="center", size=10)
+bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
+pts=str(filtered_diff.shape[0])
+axes[1,1].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
+
+########################################################################################################################################################################
+####   18Z Summer
+########################################################################################################################################################################
+
+filtered_x=ma.masked_outside(Summer_18_SCAN[1,:,:],min_cor,max_cor)
+filtered_y=ma.masked_outside(Summer_18_ISCCP[:,:],min_cor,max_cor)
+mask=ma.masked_invalid(filtered_x.filled(np.nan)*filtered_y.filled(np.nan)).mask
+filtered_x_final=ma.masked_array(Summer_18_SCAN[1,:,:],mask=mask).compressed()
+filtered_y_final=ma.masked_array(Summer_18_ISCCP[:,:],mask=mask).compressed()
+slope_SumScan_18_L0, intercept_SumScan_18_L0, r_value_SumScan_18_L0, p_value_SumScan_18_L0, std_err_SumScan_18_L0 = stats.linregress(filtered_x_final, filtered_y_final)
+print ('this r value for the Summer ISSCP vs. ISMN LY2 is...', r_value_SumScan_18_L0)
+
+#compute the bias
+filtered_diff=filtered_y_final-filtered_x_final
+temp_bias_SumISCCP_18_L0=np.sum(filtered_diff)/filtered_diff.shape[0]
+rmse_SumISCCP_18_L0 = np.sqrt(np.nanmean((filtered_y_final-filtered_x_final)**2.))
+ubrmse_SumISCCP_18_L0=np.sqrt(rmse_SumISCCP_18_L0**2-temp_bias_SumISCCP_18_L0**2)
+
+axes[2,1].set_ylim(240, Scat_max)
+axes[2,1].set_xlim(240, Scat_max)
+xy = np.vstack([filtered_x_final, filtered_y_final])
+z = gaussian_kde(xy)(xy)
+axes[2,1].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cmap='turbo')
+
+axes[2,1].plot(filtered_x_final, filtered_x_final*slope_SumScan_18_L0+intercept_SumScan_18_L0, color='red', linewidth=2)
+axes[2,1].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
+axes[2,1].grid()
+axes[2,1].set_ylabel('ISCCP Skin T (K)', size=10)
+axes[2,1].set_xlabel('ISMN 10cm Tsoil (K)', size=12)
+bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
+axes[2,1].text(Scat_min+2, Scat_max-10, "18 UTC", ha="left", va="center", size=12, bbox=bbox_props)
+axes[2,1].text(Scat_max+3, Scat_max-5, "RMS :"+str(round(rmse_SumISCCP_18_L0,2)), ha="left", va="center", size=10)
+axes[2,1].text(Scat_max+3, Scat_max-15, "BIAS:"+str(round(temp_bias_SumISCCP_18_L0,2)), ha="left", va="center", size=10)
+axes[2,1].text(Scat_max+3, Scat_max-22, "(ISSCP-ISMN)", ha="left", va="center", size=6)
+axes[2,1].text(Scat_max+3, Scat_max-35, "R:"+str(round(r_value_SumScan_18_L0,2)), ha="left", va="center", size=10)
+axes[2,1].text(Scat_max+3, Scat_max-45, "ubRMSD:"+str(round(ubrmse_SumISCCP_18_L0,2)), ha="left", va="center", size=10)
+axes[2,1].text(Scat_max+3, Scat_max-55, "p-value:"+str(round(p_value_SumScan_18_L0,2)), ha="left", va="center", size=10)
+bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
+pts=str(filtered_diff.shape[0])
+axes[2,1].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
+
+########################################################################################################################################################################
+####   21Z Summer
+########################################################################################################################################################################
+
+filtered_x=ma.masked_outside(Summer_21_SCAN[1,:,:],min_cor,max_cor)
+filtered_y=ma.masked_outside(Summer_21_ISCCP[:,:],min_cor,max_cor)
+mask=ma.masked_invalid(filtered_x.filled(np.nan)*filtered_y.filled(np.nan)).mask
+filtered_x_final=ma.masked_array(Summer_21_SCAN[1,:,:],mask=mask).compressed()
+filtered_y_final=ma.masked_array(Summer_21_ISCCP[:,:],mask=mask).compressed()
+slope_SumScan_21_L0, intercept_SumScan_21_L0, r_value_SumScan_21_L0, p_value_SumScan_21_L0, std_err_SumScan_21_L0 = stats.linregress(filtered_x_final, filtered_y_final)
+print ('this r value for the Summer ISSCP vs. ISMN LY2 is...', r_value_SumScan_21_L0)
+
+#compute the bias
+filtered_diff=filtered_y_final-filtered_x_final
+temp_bias_SumISCCP_21_L0=np.sum(filtered_diff)/filtered_diff.shape[0]
+rmse_SumISCCP_21_L0 = np.sqrt(np.nanmean((filtered_y_final-filtered_x_final)**2.))
+ubrmse_SumISCCP_21_L0=np.sqrt(rmse_SumISCCP_21_L0**2-temp_bias_SumISCCP_21_L0**2)
+
+axes[3,1].set_ylim(240, Scat_max)
+axes[3,1].set_xlim(240, Scat_max)
+xy = np.vstack([filtered_x_final, filtered_y_final])
+z = gaussian_kde(xy)(xy)
+axes[3,1].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cmap='turbo')
+
+axes[3,1].plot(filtered_x_final, filtered_x_final*slope_SumScan_21_L0+intercept_SumScan_21_L0, color='red', linewidth=2)
+axes[3,1].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
+axes[3,1].grid()
+axes[3,1].set_ylabel('ISCCP Skin T (K)', size=10)
+axes[3,1].set_xlabel('ISMN 10cm Tsoil (K)', size=12)
+bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
+axes[3,1].text(Scat_min+2, Scat_max-10, "21 UTC", ha="left", va="center", size=12, bbox=bbox_props)
+axes[3,1].text(Scat_max+3, Scat_max-5, "RMS :"+str(round(rmse_SumISCCP_21_L0,2)), ha="left", va="center", size=10)
+axes[3,1].text(Scat_max+3, Scat_max-15, "BIAS:"+str(round(temp_bias_SumISCCP_21_L0,2)), ha="left", va="center", size=10)
+axes[3,1].text(Scat_max+3, Scat_max-22, "(ISSCP-ISMN)", ha="left", va="center", size=6)
+axes[3,1].text(Scat_max+3, Scat_max-35, "R:"+str(round(r_value_SumScan_21_L0,2)), ha="left", va="center", size=10)
+axes[3,1].text(Scat_max+3, Scat_max-45, "ubRMSD:"+str(round(ubrmse_SumISCCP_21_L0,2)), ha="left", va="center", size=10)
+axes[3,1].text(Scat_max+3, Scat_max-55, "p-value:"+str(round(p_value_SumScan_21_L0,2)), ha="left", va="center", size=10)
+bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
+pts=str(filtered_diff.shape[0])
+axes[3,1].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
+
+plt.suptitle('ISCCP Skin Temperature vs. ISMN 10cm Soil Temp Summer (JJA)\n'+Plot_Labels_full, fontsize=18)
+img_fname_pre=img_out_path
+plt.savefig(img_out_path+'Seasonal_Summer_ISCCPvsISMN10cm_All_Stations'+BGDATE+'-'+EDATE+'_'+Plot_Labels+'.png')
+plt.close(figure)
+
+########################################################################################################################################################################
+####   Fall  Plots of ISCCP vs. ISMN
+########################################################################################################################################################################
+####   00Z Fall
+########################################################################################################################################################################
+
+figure, axes=plt.subplots(nrows=4, ncols=2, figsize=(16,8))
+
+filtered_x=ma.masked_outside(Fall_00_SCAN[1,:,:],min_cor,max_cor)
+filtered_y=ma.masked_outside(Fall_00_ISCCP[:,:],min_cor,max_cor)
+mask=ma.masked_invalid(filtered_x.filled(np.nan)*filtered_y.filled(np.nan)).mask
+filtered_x_final=ma.masked_array(Fall_00_SCAN[1,:,:],mask=mask).compressed()
+filtered_y_final=ma.masked_array(Fall_00_ISCCP[:,:],mask=mask).compressed()
+slope_FallScan_00_L0, intercept_FallScan_00_L0, r_value_FallScan_00_L0, p_value_FallScan_00_L0, std_err_FallScan_00_L0 = stats.linregress(filtered_x_final, filtered_y_final)
+print ('this r value for the Fall ISSCP vs. ISMN LY2 is...', r_value_FallScan_00_L0)
+
+#compute the bias
+filtered_diff=filtered_y_final-filtered_x_final
+temp_bias_FallISCCP_00_L0=np.sum(filtered_diff)/filtered_diff.shape[0]
+rmse_FallISCCP_00_L0 = np.sqrt(np.nanmean((filtered_y_final-filtered_x_final)**2.))
+ubrmse_FallISCCP_00_L0=np.sqrt(rmse_FallISCCP_00_L0**2-temp_bias_FallISCCP_00_L0**2)
+
+axes[0,0].set_ylim(240, Scat_max)
+axes[0,0].set_xlim(240, Scat_max)
+xy = np.vstack([filtered_x_final, filtered_y_final])
+z = gaussian_kde(xy)(xy)
+axes[0,0].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cmap='turbo')
+axes[0,0].plot(filtered_x_final, filtered_x_final*slope_FallScan_00_L0+intercept_FallScan_00_L0, color='red', linewidth=2)
+axes[0,0].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
+axes[0,0].grid()
+axes[0,0].set_ylabel('ISCCP Skin T (K)', size=10)
+axes[0,0].set_xlabel('ISMN 10cm Tsoil (K)', size=12)
+bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
+axes[0,0].text(Scat_min+2,  Scat_max-10, "00 UTC", ha="left", va="center", size=12, bbox=bbox_props)
+axes[0,0].text(Scat_min-12, Scat_max-5, "RMS :"+str(round(rmse_FallISCCP_00_L0,2)), ha="right", va="center", size=10)
+axes[0,0].text(Scat_min-12, Scat_max-15, "BIAS:"+str(round(temp_bias_FallISCCP_00_L0,2)), ha="right", va="center", size=10)
+axes[0,0].text(Scat_min-12, Scat_max-22, "(ISSCP-ISMN)", ha="right", va="center", size=6)
+axes[0,0].text(Scat_min-12, Scat_max-35, "R:"+str(round(r_value_FallScan_00_L0,2)), ha="right", va="center", size=10)
+axes[0,0].text(Scat_min-12, Scat_max-45, "ubRMSD:"+str(round(ubrmse_FallISCCP_00_L0,2)), ha="right", va="center", size=10)
+axes[0,0].text(Scat_max-12, Scat_max-55, "p-value:"+str(round(p_value_FallScan_00_L0,2)), ha="left", va="center", size=10)
+bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
+pts=str(filtered_diff.shape[0])
+axes[0,0].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
+
+########################################################################################################################################################################
+####   03Z Fall
+########################################################################################################################################################################
+
+filtered_x=ma.masked_outside(Fall_03_SCAN[1,:,:],min_cor,max_cor)
+filtered_y=ma.masked_outside(Fall_03_ISCCP[:,:],min_cor,max_cor)
+mask=ma.masked_invalid(filtered_x.filled(np.nan)*filtered_y.filled(np.nan)).mask
+filtered_x_final=ma.masked_array(Fall_03_SCAN[1,:,:],mask=mask).compressed()
+filtered_y_final=ma.masked_array(Fall_03_ISCCP[:,:],mask=mask).compressed()
+slope_FallScan_03_L0, intercept_FallScan_03_L0, r_value_FallScan_03_L0, p_value_FallScan_03_L0, std_err_FallScan_03_L0 = stats.linregress(filtered_x_final, filtered_y_final)
+print ('this r value for the Fall ISSCP vs. ISMN LY2 is...', r_value_FallScan_03_L0)
+
+#compute the bias
+filtered_diff=filtered_y_final-filtered_x_final
+temp_bias_FallISCCP_03_L0=np.sum(filtered_diff)/filtered_diff.shape[0]
+rmse_FallISCCP_03_L0 = np.sqrt(np.nanmean((filtered_y_final-filtered_x_final)**2.))
+ubrmse_FallISCCP_03_L0=np.sqrt(rmse_FallISCCP_03_L0**2-temp_bias_FallISCCP_03_L0**2)
+
+axes[1,0].set_ylim(240, Scat_max)
+axes[1,0].set_xlim(240, Scat_max)
+xy = np.vstack([filtered_x_final, filtered_y_final])
+z = gaussian_kde(xy)(xy)
+axes[1,0].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cmap='turbo')
+axes[1,0].plot(filtered_x_final, filtered_x_final*slope_FallScan_03_L0+intercept_FallScan_03_L0, color='red', linewidth=2)
+axes[1,0].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
+axes[1,0].grid()
+axes[1,0].set_ylabel('ISCCP Skin T (K)', size=10)
+axes[1,0].set_xlabel('ISMN 10cm Tsoil (K)', size=12)
+bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
+axes[1,0].text(Scat_min+2,  Scat_max-10, "03 UTC", ha="left", va="center", size=12, bbox=bbox_props)
+axes[1,0].text(Scat_min-12, Scat_max-5, "RMS :"+str(round(rmse_FallISCCP_03_L0,2)), ha="right", va="center", size=10)
+axes[1,0].text(Scat_min-12, Scat_max-15, "BIAS:"+str(round(temp_bias_FallISCCP_03_L0,2)), ha="right", va="center", size=10)
+axes[1,0].text(Scat_min-12, Scat_max-22, "(ISSCP-ISMN)", ha="right", va="center", size=6)
+axes[1,0].text(Scat_min-12, Scat_max-35, "R:"+str(round(r_value_FallScan_03_L0,2)), ha="right", va="center", size=10)
+axes[1,0].text(Scat_min-12, Scat_max-45, "ubRMSD:"+str(round(ubrmse_FallISCCP_03_L0,2)), ha="right", va="center", size=10)
+axes[1,0].text(Scat_max-12, Scat_max-55, "p-value:"+str(round(p_value_FallScan_03_L0,2)), ha="left", va="center", size=10)
+bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
+pts=str(filtered_diff.shape[0])
+axes[1,0].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
+
+########################################################################################################################################################################
+####   06Z Fall
+########################################################################################################################################################################
+
+filtered_x=ma.masked_outside(Fall_06_SCAN[1,:,:],min_cor,max_cor)
+filtered_y=ma.masked_outside(Fall_06_ISCCP[:,:],min_cor,max_cor)
+mask=ma.masked_invalid(filtered_x.filled(np.nan)*filtered_y.filled(np.nan)).mask
+filtered_x_final=ma.masked_array(Fall_06_SCAN[1,:,:],mask=mask).compressed()
+filtered_y_final=ma.masked_array(Fall_06_ISCCP[:,:],mask=mask).compressed()
+slope_FallScan_06_L0, intercept_FallScan_06_L0, r_value_FallScan_06_L0, p_value_FallScan_06_L0, std_err_FallScan_06_L0 = stats.linregress(filtered_x_final, filtered_y_final)
+print ('this r value for the Fall ISSCP vs. ISMN LY2 is...', r_value_FallScan_06_L0)
+
+#compute the bias
+filtered_diff=filtered_y_final-filtered_x_final
+temp_bias_FallISCCP_06_L0=np.sum(filtered_diff)/filtered_diff.shape[0]
+rmse_FallISCCP_06_L0 = np.sqrt(np.nanmean((filtered_y_final-filtered_x_final)**2.))  # math.sqrt(mse_FallISCCP_06_L0)
+ubrmse_FallISCCP_06_L0=np.sqrt(rmse_FallISCCP_06_L0**2-temp_bias_FallISCCP_06_L0**2)
+
+axes[2,0].set_ylim(240, Scat_max)
+axes[2,0].set_xlim(240, Scat_max)
+xy = np.vstack([filtered_x_final, filtered_y_final])
+z = gaussian_kde(xy)(xy)
+axes[2,0].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cmap='turbo')
+axes[2,0].plot(filtered_x_final, filtered_x_final*slope_FallScan_06_L0+intercept_FallScan_06_L0, color='red', linewidth=2)
+axes[2,0].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
+axes[2,0].grid()
+axes[2,0].set_ylabel('ISCCP Skin T (K)', size=10)
+axes[2,0].set_xlabel('ISMN 10cm Tsoil (K)', size=12)
+bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
+axes[2,0].text(Scat_min+2,  Scat_max-10, "06 UTC", ha="left", va="center", size=12, bbox=bbox_props)
+axes[2,0].text(Scat_min-12, Scat_max-5, "RMS :"+str(round(rmse_FallISCCP_06_L0,2)), ha="right", va="center", size=10)
+axes[2,0].text(Scat_min-12, Scat_max-15, "BIAS:"+str(round(temp_bias_FallISCCP_06_L0,2)), ha="right", va="center", size=10)
+axes[2,0].text(Scat_min-12, Scat_max-22, "(ISSCP-ISMN)", ha="right", va="center", size=6)
+axes[2,0].text(Scat_min-12, Scat_max-35, "R:"+str(round(r_value_FallScan_06_L0,2)), ha="right", va="center", size=10)
+axes[2,0].text(Scat_min-12, Scat_max-45, "ubRMSD:"+str(round(ubrmse_FallISCCP_06_L0,2)), ha="right", va="center", size=10)
+axes[2,0].text(Scat_max-12, Scat_max-55, "p-value:"+str(round(p_value_FallScan_06_L0,2)), ha="left", va="center", size=10)
+bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
+pts=str(filtered_diff.shape[0])
+axes[2,0].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
+
+########################################################################################################################################################################
+####   09Z Fall
+########################################################################################################################################################################
+
+filtered_x=ma.masked_outside(Fall_09_SCAN[1,:,:],min_cor,max_cor)
+filtered_y=ma.masked_outside(Fall_09_ISCCP[:,:],min_cor,max_cor)
+mask=ma.masked_invalid(filtered_x.filled(np.nan)*filtered_y.filled(np.nan)).mask
+filtered_x_final=ma.masked_array(Fall_09_SCAN[1,:,:],mask=mask).compressed()
+filtered_y_final=ma.masked_array(Fall_09_ISCCP[:,:],mask=mask).compressed()
+slope_FallScan_09_L0, intercept_FallScan_09_L0, r_value_FallScan_09_L0, p_value_FallScan_09_L0, std_err_FallScan_09_L0 = stats.linregress(filtered_x_final, filtered_y_final)
+print ('this r value for the Fall ISSCP vs. ISMN LY2 is...', r_value_FallScan_09_L0)
+
+#compute the bias
+filtered_diff=filtered_y_final-filtered_x_final
+temp_bias_FallISCCP_09_L0=np.sum(filtered_diff)/filtered_diff.shape[0]
+rmse_FallISCCP_09_L0 = np.sqrt(np.nanmean((filtered_y_final-filtered_x_final)**2.))
+ubrmse_FallISCCP_09_L0=np.sqrt(rmse_FallISCCP_09_L0**2-temp_bias_FallISCCP_09_L0**2)
+
+axes[3,0].set_ylim(240, Scat_max)
+axes[3,0].set_xlim(240, Scat_max)
+xy = np.vstack([filtered_x_final, filtered_y_final])
+z = gaussian_kde(xy)(xy)
+axes[3,0].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cmap='turbo')
+axes[3,0].plot(filtered_x_final, filtered_x_final*slope_FallScan_09_L0+intercept_FallScan_09_L0, color='red', linewidth=2)
+axes[3,0].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
+axes[3,0].grid()
+axes[3,0].set_ylabel('ISCCP Skin T (K)', size=10)
+axes[3,0].set_xlabel('ISMN 10cm Tsoil (K)', size=12)
+bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
+axes[3,0].text(Scat_min+2,  Scat_max-10, "09 UTC", ha="left", va="center", size=12, bbox=bbox_props)
+axes[3,0].text(Scat_min-12, Scat_max-5, "RMS :"+str(round(rmse_FallISCCP_09_L0,2)), ha="right", va="center", size=10)
+axes[3,0].text(Scat_min-12, Scat_max-15, "BIAS:"+str(round(temp_bias_FallISCCP_09_L0,2)), ha="right", va="center", size=10)
+axes[3,0].text(Scat_min-12, Scat_max-22, "(ISSCP-ISMN)", ha="right", va="center", size=6)
+axes[3,0].text(Scat_min-12, Scat_max-35, "R:"+str(round(r_value_FallScan_09_L0,2)), ha="right", va="center", size=10)
+axes[3,0].text(Scat_min-12, Scat_max-45, "ubRMSD:"+str(round(ubrmse_FallISCCP_09_L0,2)), ha="right", va="center", size=10)
+axes[3,0].text(Scat_max-12, Scat_max-55, "p-value:"+str(round(p_value_FallScan_09_L0,2)), ha="left", va="center", size=10)
+bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
+pts=str(filtered_diff.shape[0])
+axes[3,0].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
+
+########################################################################################################################################################################
+####   12Z Fall
+########################################################################################################################################################################
+
+filtered_x=ma.masked_outside(Fall_12_SCAN[1,:,:],min_cor,max_cor)
+filtered_y=ma.masked_outside(Fall_12_ISCCP[:,:],min_cor,max_cor)
+mask=ma.masked_invalid(filtered_x.filled(np.nan)*filtered_y.filled(np.nan)).mask
+filtered_x_final=ma.masked_array(Fall_12_SCAN[1,:,:],mask=mask).compressed()
+filtered_y_final=ma.masked_array(Fall_12_ISCCP[:,:],mask=mask).compressed()
+slope_FallScan_12_L0, intercept_FallScan_12_L0, r_value_FallScan_12_L0, p_value_FallScan_12_L0, std_err_FallScan_12_L0 = stats.linregress(filtered_x_final, filtered_y_final)
+print ('this r value for the Fall ISSCP vs. ISMN LY2 is...', r_value_FallScan_12_L0)
+
+#compute the bias
+filtered_diff=filtered_y_final-filtered_x_final
+temp_bias_FallISCCP_12_L0=np.sum(filtered_diff)/filtered_diff.shape[0]
+rmse_FallISCCP_12_L0 = np.sqrt(np.nanmean((filtered_y_final-filtered_x_final)**2.))   # math.sqrt(mse_FallISCCP_12_L0)
+ubrmse_FallISCCP_12_L0=np.sqrt(rmse_FallISCCP_12_L0**2-temp_bias_FallISCCP_12_L0**2)
+
+axes[0,1].set_ylim(240, Scat_max)
+axes[0,1].set_xlim(240, Scat_max)
+xy = np.vstack([filtered_x_final, filtered_y_final])
+z = gaussian_kde(xy)(xy)
+axes[0,1].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cmap='turbo')
+axes[0,1].plot(filtered_x_final, filtered_x_final*slope_FallScan_12_L0+intercept_FallScan_12_L0, color='red', linewidth=2)
+axes[0,1].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
+axes[0,1].grid()
+axes[0,1].set_ylabel('ISCCP Skin T (K)', size=1)
+axes[0,1].set_xlabel('ISMN 10cm Tsoil (K)', size=12)
+bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
+axes[0,1].text(Scat_min+2, Scat_max-10, "12 UTC", ha="left", va="center", size=12, bbox=bbox_props)
+axes[0,1].text(Scat_max+3, Scat_max-5, "RMS :"+str(round(rmse_FallISCCP_12_L0,2)), ha="left", va="center", size=10)
+axes[0,1].text(Scat_max+3, Scat_max-15, "BIAS:"+str(round(temp_bias_FallISCCP_12_L0,2)), ha="left", va="center", size=10)
+axes[0,1].text(Scat_max+3, Scat_max-22, "(ISSCP-ISMN)", ha="left", va="center", size=6)
+axes[0,1].text(Scat_max+3, Scat_max-35, "R:"+str(round(r_value_FallScan_12_L0,2)), ha="left", va="center", size=10)
+axes[0,1].text(Scat_max+3, Scat_max-45, "ubRMSD:"+str(round(ubrmse_FallISCCP_12_L0,2)), ha="left", va="center", size=10)
+axes[0,1].text(Scat_max+3, Scat_max-55, "p-value:"+str(round(p_value_FallScan_12_L0,2)), ha="left", va="center", size=10)
+bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
+pts=str(filtered_diff.shape[0])
+axes[0,1].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
+
+########################################################################################################################################################################
+####   15Z Fall
+########################################################################################################################################################################
+
+filtered_x=ma.masked_outside(Fall_15_SCAN[1,:,:],min_cor,max_cor)
+filtered_y=ma.masked_outside(Fall_15_ISCCP[:,:],min_cor,max_cor)
+mask=ma.masked_invalid(filtered_x.filled(np.nan)*filtered_y.filled(np.nan)).mask
+filtered_x_final=ma.masked_array(Fall_15_SCAN[1,:,:],mask=mask).compressed()
+filtered_y_final=ma.masked_array(Fall_15_ISCCP[:,:],mask=mask).compressed()
+slope_FallScan_15_L0, intercept_FallScan_15_L0, r_value_FallScan_15_L0, p_value_FallScan_15_L0, std_err_FallScan_15_L0 = stats.linregress(filtered_x_final, filtered_y_final)
+print ('this r value for the Fall ISSCP vs. ISMN LY2 is...', r_value_FallScan_15_L0)
+
+#compute the bias
+filtered_diff=filtered_y_final-filtered_x_final
+temp_bias_FallISCCP_15_L0=np.sum(filtered_diff)/filtered_diff.shape[0]
+#compute the RMSD
+rmse_FallISCCP_15_L0 = np.sqrt(np.nanmean((filtered_y_final-filtered_x_final)**2.))  # math.sqrt(mse_FallISCCP_15_L0)
+#compute the ubRMSD
+ubrmse_FallISCCP_15_L0=np.sqrt(rmse_FallISCCP_15_L0**2-temp_bias_FallISCCP_15_L0**2)
+
+axes[1,1].set_ylim(240, Scat_max)
+axes[1,1].set_xlim(240, Scat_max)
+xy = np.vstack([filtered_x_final, filtered_y_final])
+z = gaussian_kde(xy)(xy)
+axes[1,1].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cmap='turbo')
+
+axes[1,1].plot(filtered_x_final, filtered_x_final*slope_FallScan_15_L0+intercept_FallScan_15_L0, color='red', linewidth=2)
+axes[1,1].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
+axes[1,1].grid()
+axes[1,1].set_ylabel('ISCCP Skin T (K)', size=10)
+axes[1,1].set_xlabel('ISMN 10cm Tsoil (K)', size=12)
+bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
+axes[1,1].text(Scat_min+2, Scat_max-10, "15 UTC", ha="left", va="center", size=12, bbox=bbox_props)
+axes[1,1].text(Scat_max+3, Scat_max-5, "RMS :"+str(round(rmse_FallISCCP_15_L0,2)), ha="left", va="center", size=10)
+axes[1,1].text(Scat_max+3, Scat_max-15, "BIAS:"+str(round(temp_bias_FallISCCP_15_L0,2)), ha="left", va="center", size=10)
+axes[1,1].text(Scat_max+3, Scat_max-22, "(ISSCP-ISMN)", ha="left", va="center", size=6)
+axes[1,1].text(Scat_max+3, Scat_max-35, "R:"+str(round(r_value_FallScan_15_L0,2)), ha="left", va="center", size=10)
+axes[1,1].text(Scat_max+3, Scat_max-45, "ubRMSD:"+str(round(ubrmse_FallISCCP_15_L0,2)), ha="left", va="center", size=10)
+axes[1,1].text(Scat_max+3, Scat_max-55, "p-value:"+str(round(p_value_FallScan_15_L0,2)), ha="left", va="center", size=10)
+bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
+pts=str(filtered_diff.shape[0])
+axes[1,1].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
+
+########################################################################################################################################################################
+####   18Z Fall
+########################################################################################################################################################################
+
+filtered_x=ma.masked_outside(Fall_18_SCAN[1,:,:],min_cor,max_cor)
+filtered_y=ma.masked_outside(Fall_18_ISCCP[:,:],min_cor,max_cor)
+mask=ma.masked_invalid(filtered_x.filled(np.nan)*filtered_y.filled(np.nan)).mask
+filtered_x_final=ma.masked_array(Fall_18_SCAN[1,:,:],mask=mask).compressed()
+filtered_y_final=ma.masked_array(Fall_18_ISCCP[:,:],mask=mask).compressed()
+slope_FallScan_18_L0, intercept_FallScan_18_L0, r_value_FallScan_18_L0, p_value_FallScan_18_L0, std_err_FallScan_18_L0 = stats.linregress(filtered_x_final, filtered_y_final)
+print ('this r value for the Fall ISSCP vs. ISMN LY2 is...', r_value_FallScan_18_L0)
+
+#compute the bias
+filtered_diff=filtered_y_final-filtered_x_final
+temp_bias_FallISCCP_18_L0=np.sum(filtered_diff)/filtered_diff.shape[0]
+rmse_FallISCCP_18_L0 = np.sqrt(np.nanmean((filtered_y_final-filtered_x_final)**2.))  # math.sqrt(mse_FallISCCP_18_L0)
+ubrmse_FallISCCP_18_L0=np.sqrt(rmse_FallISCCP_18_L0**2-temp_bias_FallISCCP_18_L0**2)
+
+axes[2,1].set_ylim(240, Scat_max)
+axes[2,1].set_xlim(240, Scat_max)
+
+xy = np.vstack([filtered_x_final, filtered_y_final])
+z = gaussian_kde(xy)(xy)
+axes[2,1].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cmap='turbo')
+
+axes[2,1].plot(filtered_x_final, filtered_x_final*slope_FallScan_18_L0+intercept_FallScan_18_L0, color='red', linewidth=2)
+axes[2,1].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
+axes[2,1].grid()
+axes[2,1].set_ylabel('ISCCP Skin T (K)')
+axes[2,1].set_xlabel('ISMN 10cm Tsoil (K)', size=12)
+bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
+axes[2,1].text(Scat_min+2, Scat_max-10, "18 UTC", ha="left", va="center", size=12, bbox=bbox_props)
+axes[2,1].text(Scat_max+3, Scat_max-5, "RMS :"+str(round(rmse_FallISCCP_18_L0,2)), ha="left", va="center", size=10)
+axes[2,1].text(Scat_max+3, Scat_max-15, "BIAS:"+str(round(temp_bias_FallISCCP_18_L0,2)), ha="left", va="center", size=10)
+axes[2,1].text(Scat_max+3, Scat_max-22, "(ISSCP-ISMN)", ha="left", va="center", size=6)
+axes[2,1].text(Scat_max+3, Scat_max-35, "R:"+str(round(r_value_FallScan_18_L0,2)), ha="left", va="center", size=10)
+axes[2,1].text(Scat_max+3, Scat_max-45, "ubRMSD:"+str(round(ubrmse_FallISCCP_18_L0,2)), ha="left", va="center", size=10)
+axes[2,1].text(Scat_max+3, Scat_max-55, "p-value:"+str(round(p_value_FallScan_18_L0,2)), ha="left", va="center", size=10)
+bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
+pts=str(filtered_diff.shape[0])
+axes[2,1].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
+
+########################################################################################################################################################################
+####   21Z Fall
+########################################################################################################################################################################
+
+filtered_x=ma.masked_outside(Fall_21_SCAN[1,:,:],min_cor,max_cor)
+filtered_y=ma.masked_outside(Fall_21_ISCCP[:,:],min_cor,max_cor)
+mask=ma.masked_invalid(filtered_x.filled(np.nan)*filtered_y.filled(np.nan)).mask
+filtered_x_final=ma.masked_array(Fall_21_SCAN[1,:,:],mask=mask).compressed()
+filtered_y_final=ma.masked_array(Fall_21_ISCCP[:,:],mask=mask).compressed()
+slope_FallScan_21_L0, intercept_FallScan_21_L0, r_value_FallScan_21_L0, p_value_FallScan_21_L0, std_err_FallScan_21_L0 = stats.linregress(filtered_x_final, filtered_y_final)
+print ('this r value for the Fall ISSCP vs. ISMN LY2 is...', r_value_FallScan_21_L0)
+
+#compute the bias
+filtered_diff=filtered_y_final-filtered_x_final
+temp_bias_FallISCCP_21_L0=np.sum(filtered_diff)/filtered_diff.shape[0]
+rmse_FallISCCP_21_L0 = np.sqrt(np.nanmean((filtered_y_final-filtered_x_final)**2.))
+ubrmse_FallISCCP_21_L0=np.sqrt(rmse_FallISCCP_21_L0**2-temp_bias_FallISCCP_21_L0**2)
+std_dev=np.std(filtered_diff)
+
+axes[3,1].set_ylim(240, Scat_max)
+axes[3,1].set_xlim(240, Scat_max)
+#axes[3,1].scatter(ISSCP_twtyone_array_soiltemp[:,:], SCAN_twtyone_array_soiltemp[1,:,:], marker='+')
+#axes[3,1].scatter(filtered_x_final, filtered_y_final, marker='+')
+xy = np.vstack([filtered_x_final, filtered_y_final])
+z = gaussian_kde(xy)(xy)
+axes[3,1].scatter(filtered_x_final, filtered_y_final, c=z, s=10, marker='+', cmap='turbo')
+
+axes[3,1].plot(filtered_x_final, filtered_x_final*slope_FallScan_21_L0+intercept_FallScan_21_L0, color='red', linewidth=2)
+axes[3,1].plot([0,Scat_max],[0, Scat_max], color='black', linewidth=2)
+axes[3,1].grid()
+axes[3,1].set_ylabel('ISCCP Skin T (K)', size=10)
+axes[3,1].set_xlabel('ISMN 10cm Tsoil (K)', fontsize=12)
+bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
+axes[3,1].text(Scat_min+2, Scat_max-10, "21 UTC", ha="left", va="center", size=12, bbox=bbox_props)
+axes[3,1].text(Scat_max+3, Scat_max-5, "RMS :"+str(round(rmse_FallISCCP_21_L0,2)), ha="left", va="center", size=10)
+axes[3,1].text(Scat_max+3, Scat_max-15, "BIAS:"+str(round(temp_bias_FallISCCP_21_L0,2)), ha="left", va="center", size=10)
+axes[3,1].text(Scat_max+3, Scat_max-22, "(ISSCP-ISMN)", ha="left", va="center", size=6)
+axes[3,1].text(Scat_max+3, Scat_max-35, "R:"+str(round(r_value_FallScan_21_L0,2)), ha="left", va="center", size=10)
+axes[3,1].text(Scat_max+3, Scat_max-45, "ubRMSD:"+str(round(ubrmse_FallISCCP_21_L0,2)), ha="left", va="center", size=10)
+axes[3,1].text(Scat_max+3, Scat_max-55, "p-value:"+str(round(p_value_FallScan_21_L0,2)), ha="left", va="center", size=10)
+bbox_props = dict(boxstyle="square", fc="w", ec="0.5", alpha=0.9)
+pts=str(filtered_diff.shape[0])
+axes[3,1].text(Scat_max-2, Scat_min+10, 'number of points='+pts, ha="right", va="center", size=10, bbox=bbox_props)
+    
+plt.suptitle('ISCCP Skin Temperature vs. ISMN 10cm Soil Temp Fall (SON)\n'+Plot_Labels_full, fontsize=18)
+img_fname_pre=img_out_path
+plt.savefig(img_out_path+'Seasonal_Fall_ISCCPvsISMN10cm_All_Stations'+BGDATE+'-'+EDATE+'_'+Plot_Labels+'.png')
 plt.close(figure)
